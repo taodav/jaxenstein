@@ -1,0 +1,46 @@
+[project]
+name = "jaxenstein"
+version = "0.1.0"
+description = "First person mazes in JAX"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "chex>=0.1.89",
+    "distrax>=0.1.5",
+    "flax>=0.10.7",
+    "gymnax>=0.0.8",
+    "jax>=0.6.2",
+    "numpy>=1.26.0",
+    "optax>=0.2.6",
+    "pillow>=11.0.0",
+    "typed-argument-parser>=1.12.0",
+]
+
+[project.optional-dependencies]
+cuda12 = [
+    "jax[cuda12]>=0.6.2; sys_platform == 'linux'",
+]
+tpu = [
+    "jax[tpu]>=0.6.2; sys_platform == 'linux'",
+]
+brax = [
+    "brax>=0.12.1",
+]
+dev = [
+    "pytest>=8.4.1",
+]
+experiment = [
+    "onager",
+    "typed-argument-parser>=1.11.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "jes"
+module-root = ""
+
+[tool.uv.sources]
+onager = { git = "https://github.com/taodav/onager.git" }

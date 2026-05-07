@@ -1,0 +1,251 @@
+"""Interactive keyboard player for the MAZE_SIMPLE renderer."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import os
+from pathlib import Path
+import tkinter as tk
+
+os.environ.setdefault("JAX_PLATFORMS", "cpu")
+os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
+logging.getLogger("jax._src.xla_bridge").setLevel(logging.CRITICAL)
+
+import jax
+import jax.numpy as jnp
+import numpy as np
+from PIL import Image
+
+from jes import (
+    ACTION_INTERACT,
+    ACTION_MOVE_BACKWARD,
+    ACTION_MOVE_FORWARD,
+    ACTION_TURN_LEFT,
+    ACTION_TURN_RIGHT,
+    RayMazeEnv,
+)
+from jes.maps import MAPS_BY_NAME
+
+
+KEY_ACTIONS = {
+    "w": ACTION_MOVE_FORWARD,
+    "s": ACTION_MOVE_BACKWARD,
+    "a": ACTION_TURN_LEFT,
+    "d": ACTION_TURN_RIGHT,
+    "space": ACTION_INTERACT,
+}
+DEFAULT_TICK_MS = 50
+DEFAULT_RECORD_PATH = "trajectory.gif"
+
+
+class Player:
+    def __init__(
+        self, maze_name: str, scale: int, tick_ms: int, record_path: Path | None
+    ):
+        self.env = RayMazeEnv.from_ascii([MAPS_BY_NAME[maze_name]])
+        self.scale = scale
+        self.tick_ms = tick_ms
+        self.record_path = record_path
+        self.recorded_frames: list[np.ndarray] = []
+        self.key = jax.random.key(0)
+        self.step_fn = jax.jit(self.env.step)
+        self.reset_fn = jax.jit(self.env.reset)
+
+        self.obs, self.state = self.reset_fn(self.key, jnp.asarray(0, dtype=jnp.int32))
+        self._warmup()
+        self.pressed_keys: set[str] = set()
+        self.running = True
+        self.episode_done_announced = False
+
+        self.root = tk.Tk()
+        self.root.title("Jaxenstein")
+        self.root.resizable(False, False)
+        self.image_label = tk.Label(self.root, borderwidth=0, highlightthickness=0)
+        self.image_label.pack()
+        self.photo: tk.PhotoImage | None = None
+        self.base_photo: tk.PhotoImage | None = None
+
+        self.root.bind_all("<KeyPress>", self.on_key_press)
+        self.root.bind_all("<KeyRelease>", self.on_key_release)
+        self.root.bind_all("q", self.close)
+        self.root.bind_all("Q", self.close)
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
+        self.draw()
+        self.root.focus_force()
+        self.root.after(self.tick_ms, self.tick)
+
+    def _warmup(self) -> None:
+        state = self.state
+        for action in KEY_ACTIONS.values():
+            _, state, _, _, _ = self.step_fn(state, jnp.asarray(action, dtype=jnp.int32))
+
+    def on_key_press(self, event: tk.Event) -> None:
+        key = event.keysym.lower()
+        if key in ("escape", "q"):
+            self.close()
+            return
+        if key == "r":
+            self.reset()
+            return
+        if key not in KEY_ACTIONS:
+            return
+
+        self.pressed_keys.add(key)
+
+    def on_key_release(self, event: tk.Event) -> None:
+        self.pressed_keys.discard(event.keysym.lower())
+
+    def reset(self) -> None:
+        self.pressed_keys.clear()
+        self.episode_done_announced = False
+        self.obs, self.state = self.reset_fn(self.key, jnp.asarray(0, dtype=jnp.int32))
+        self.draw()
+
+    def tick(self) -> None:
+        if not self.running:
+            return
+
+        actions = self._held_actions()
+        if actions:
+            for action in actions:
+                self._step_action(action)
+            self.draw()
+
+        self.root.after(self.tick_ms, self.tick)
+
+    def _held_actions(self) -> list[int]:
+        actions = []
+        turn_left = "a" in self.pressed_keys
+        turn_right = "d" in self.pressed_keys
+        move_forward = "w" in self.pressed_keys
+        move_backward = "s" in self.pressed_keys
+        interact = "space" in self.pressed_keys
+
+        if turn_left != turn_right:
+            actions.append(ACTION_TURN_LEFT if turn_left else ACTION_TURN_RIGHT)
+        if move_forward != move_backward:
+            actions.append(ACTION_MOVE_FORWARD if move_forward else ACTION_MOVE_BACKWARD)
+        if interact:
+            actions.append(ACTION_INTERACT)
+        return actions
+
+    def _step_action(self, action: int) -> None:
+        self.obs, self.state, reward, done, _ = self.step_fn(
+            self.state, jnp.asarray(action, dtype=jnp.int32)
+        )
+        if self.episode_done_announced:
+            return
+        if bool(reward):
+            print("Goal reached. Press R to restart, or Q/Escape to quit.")
+            self.episode_done_announced = True
+        elif bool(done):
+            print("Episode done. Press R to restart, or Q/Escape to quit.")
+            self.episode_done_announced = True
+
+    def draw(self) -> None:
+        rgb = np.asarray(self.obs)
+        if self.record_path is not None:
+            self.recorded_frames.append(np.array(rgb, copy=True))
+
+        height, width, _ = rgb.shape
+        if self.base_photo is None:
+            self.base_photo = tk.PhotoImage(width=width, height=height)
+
+        rows = []
+        for row in rgb:
+            rows.append(
+                "{"
+                + " ".join(f"#{int(r):02x}{int(g):02x}{int(b):02x}" for r, g, b in row)
+                + "}"
+            )
+        self.base_photo.put(" ".join(rows), to=(0, 0, width, height))
+        self.photo = self.base_photo.zoom(self.scale, self.scale)
+        self.image_label.configure(image=self.photo)
+
+    def run(self) -> None:
+        self.root.mainloop()
+
+    def close(self, event: tk.Event | None = None) -> None:
+        del event
+        if not self.running:
+            return
+        self.running = False
+        self.pressed_keys.clear()
+        self.save_recording()
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
+
+    def save_recording(self) -> None:
+        if self.record_path is None or not self.recorded_frames:
+            return
+
+        self.record_path.parent.mkdir(parents=True, exist_ok=True)
+        frames = [
+            Image.fromarray(frame).resize(
+                (frame.shape[1] * self.scale, frame.shape[0] * self.scale),
+                Image.Resampling.NEAREST,
+            )
+            for frame in self.recorded_frames
+        ]
+        frames[0].save(
+            self.record_path,
+            save_all=True,
+            append_images=frames[1:],
+            duration=self.tick_ms,
+            loop=0,
+            optimize=False,
+        )
+        print(f"Saved recording to {self.record_path}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--scale",
+        type=int,
+        default=8,
+        help="Integer display scale for the 64x64 render.",
+    )
+    parser.add_argument(
+        "--tick-ms",
+        type=int,
+        default=DEFAULT_TICK_MS,
+        help="Milliseconds between repeated held-key updates.",
+    )
+    parser.add_argument(
+        "--record",
+        nargs="?",
+        const=DEFAULT_RECORD_PATH,
+        default=None,
+        metavar="PATH",
+        help=f"Save the played trajectory as a GIF. Defaults to {DEFAULT_RECORD_PATH}.",
+    )
+    parser.add_argument(
+        "--maze",
+        choices=sorted(MAPS_BY_NAME),
+        default="simple",
+        help="Maze to play.",
+    )
+    args = parser.parse_args()
+    if args.scale < 1:
+        raise ValueError("--scale must be at least 1")
+    if args.tick_ms < 1:
+        raise ValueError("--tick-ms must be at least 1")
+
+    print(
+        "Controls: hold W/S to move, hold A/D to turn, Space interact, "
+        "R reset, Q/Escape quit."
+    )
+    Player(
+        args.maze,
+        args.scale,
+        args.tick_ms,
+        None if args.record is None else Path(args.record),
+    ).run()
+
+
+if __name__ == "__main__":
+    main()
