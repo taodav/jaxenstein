@@ -6,10 +6,10 @@ Build a JAX-native environment:
 \texttt{ASCII maze} \rightarrow \texttt{JAX grid} \rightarrow \texttt{first-person RGB observation}
 ]
 
-with an API like:
+with a gymnax-like API like:
 
 ```python
-state = env.reset(key, maze_id)
+obs, state = env.reset(key, maze_id)
 obs, state, reward, done, info = env.step(state, action)
 ```
 
@@ -413,7 +413,7 @@ MAZE_SIMPLE = """
 MAZE_ALIASED_LOOP = """
 ###############
 #S....#.......#
-#.###.#.#####.#
+#.###.#..####.#
 #...#.#.....#.#
 ###.#.#####.#.#
 #...#.......#.#

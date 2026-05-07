@@ -3,6 +3,7 @@ import jax.numpy as jnp
 
 from jes.ascii import parse_ascii_maze
 from jes.maps import MAZE_SIMPLE
+from jes.objects import KEY_COLOR_RED, KEY_COLOR_YELLOW, door_wall_color_id
 from jes.render import raycast_fixed_step, render_first_person
 
 
@@ -52,6 +53,36 @@ def test_render_object_color_defaults_when_omitted():
     )
 
     assert rgb.shape == (64, 64, 3)
+
+
+def test_key_sprite_is_sparse_key_shape():
+    maze = parse_ascii_maze(
+        """
+        ########
+        #S.r..G#
+        ########
+        """
+    )
+
+    rgb = render_first_person(
+        maze.spawn_xy,
+        maze.spawn_theta,
+        maze.wall_grid,
+        maze.color_grid,
+        object_xy=maze.object_xy,
+        object_type=maze.object_type,
+        object_color=maze.object_color,
+        object_active=jnp.ones_like(maze.object_type, dtype=jnp.bool_),
+    )
+    red_pixels = (rgb[..., 0] > 170) & (rgb[..., 1] < 130) & (rgb[..., 2] < 130)
+
+    assert int(jnp.sum(red_pixels)) > 0
+    assert int(jnp.sum(red_pixels)) < 220
+
+
+def test_door_color_ids_are_distinct_from_default_wall_id():
+    assert int(door_wall_color_id(jnp.asarray(KEY_COLOR_RED))) != 1
+    assert int(door_wall_color_id(jnp.asarray(KEY_COLOR_YELLOW))) != 1
 
 
 def test_object_sprite_is_visible_only_when_active_and_in_view():

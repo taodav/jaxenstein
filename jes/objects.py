@@ -50,7 +50,7 @@ OBJECT_EDGE_PALETTE_BY_COLOR = jnp.asarray(
     dtype=jnp.float32,
 )
 OBJECT_PICKUP_RADIUS = jnp.asarray([0.0, 0.35, 0.35], dtype=jnp.float32)
-DOOR_WALL_COLOR_IDS = jnp.asarray([0, 1, 3, 4], dtype=jnp.int32)
+DOOR_WALL_COLOR_IDS = jnp.asarray([0, 4, 5, 6], dtype=jnp.int32)
 
 
 def object_pickup_radius(object_type: jax.Array) -> jax.Array:

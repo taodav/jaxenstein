@@ -6,9 +6,11 @@ import jax
 import jax.numpy as jnp
 
 from jes.objects import (
+    DOOR_WALL_COLOR_IDS,
     KEY_COLOR_RED,
     KEY_COLOR_YELLOW,
     OBJECT_GOAL,
+    OBJECT_KEY,
     OBJECT_NONE,
     OBJECT_CORE_PALETTE_BY_COLOR,
     OBJECT_EDGE_PALETTE_BY_COLOR,
@@ -18,10 +20,12 @@ from jes.objects import (
 DEFAULT_WALL_PALETTE = jnp.asarray(
     [
         [150, 150, 150],
-        [170, 72, 64],
+        [126, 132, 144],
         [72, 128, 96],
         [72, 96, 160],
-        [190, 168, 56],
+        [216, 56, 48],
+        [56, 112, 224],
+        [224, 192, 48],
     ],
     dtype=jnp.float32,
 )
@@ -133,6 +137,15 @@ def render_first_person(
         CEILING_RGB,
         jnp.where(wall_mask[..., None], wall_rgb[None, :, :], FLOOR_RGB),
     )
+    rgb = _apply_door_panel_pattern(
+        rgb,
+        wall_ids,
+        wall_mask,
+        wall_top,
+        wall_bottom,
+        img_h=img_h,
+        img_w=img_w,
+    )
     if object_xy is None and goal_xy is not None:
         object_xy = goal_xy[None, :]
         object_type = jnp.asarray([OBJECT_GOAL], dtype=jnp.int32)
@@ -160,6 +173,30 @@ def render_first_person(
             fov=fov,
         )
     return jnp.clip(rgb, 0, 255).astype(jnp.uint8)
+
+
+def _apply_door_panel_pattern(
+    rgb: jax.Array,
+    wall_ids: jax.Array,
+    wall_mask: jax.Array,
+    wall_top: jax.Array,
+    wall_bottom: jax.Array,
+    *,
+    img_h: int,
+    img_w: int,
+) -> jax.Array:
+    door_ids = DOOR_WALL_COLOR_IDS[1:]
+    door_cols = jnp.any(wall_ids[:, None] == door_ids[None, :], axis=1)
+
+    rows = jnp.arange(img_h, dtype=jnp.float32)[:, None]
+    cols = jnp.arange(img_w, dtype=jnp.float32)[None, :]
+    wall_mid = (wall_top + wall_bottom) * 0.5
+
+    vertical_panel = jnp.mod(cols + 2.0, 9.0) < 2.0
+    horizontal_panel = jnp.abs(rows - wall_mid[None, :]) < 1.5
+    door_pixels = wall_mask & door_cols[None, :]
+    panel_pixels = door_pixels & (vertical_panel | horizontal_panel)
+    return jnp.where(panel_pixels[..., None], rgb * 0.42 + 28.0, rgb)
 
 
 def render_billboard_sprites(
@@ -199,8 +236,23 @@ def render_billboard_sprites(
     dy = (rows - center_row) / jnp.maximum(sprite_h[:, None, None] * 0.5, 1.0)
     radius_sq = dx**2 + dy**2
 
-    object_mask = radius_sq <= 1.0
-    core_mask = (radius_sq <= 0.32) | (jnp.abs(dx) < 0.16)
+    goal_mask = radius_sq <= 1.0
+    goal_core = (radius_sq <= 0.32) | (jnp.abs(dx) < 0.16)
+
+    head_dist = (dx + 0.42) ** 2 + (dy + 0.04) ** 2
+    key_head = (head_dist <= 0.30**2) & (head_dist >= 0.13**2)
+    key_head_core = (head_dist <= 0.24**2) & (head_dist >= 0.17**2)
+    key_shaft = (dx > -0.16) & (dx < 0.60) & (jnp.abs(dy + 0.04) < 0.10)
+    key_shaft_core = (dx > -0.10) & (dx < 0.54) & (jnp.abs(dy + 0.04) < 0.055)
+    key_tooth_a = (dx > 0.30) & (dx < 0.46) & (dy > 0.02) & (dy < 0.32)
+    key_tooth_b = (dx > 0.48) & (dx < 0.64) & (dy > 0.02) & (dy < 0.24)
+    key_tooth_core = (dx > 0.34) & (dx < 0.60) & (dy > 0.04) & (dy < 0.21)
+    key_mask = key_head | key_shaft | key_tooth_a | key_tooth_b
+    key_core = key_head_core | key_shaft_core | key_tooth_core
+
+    is_key = object_type[:, None, None] == OBJECT_KEY
+    object_mask = jnp.where(is_key, key_mask, goal_mask)
+    core_mask = jnp.where(is_key, key_core, goal_core)
     visible = (
         object_active
         & (object_type != OBJECT_NONE)

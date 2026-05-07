@@ -49,7 +49,7 @@ The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor. `#` 
 | `B` | blue door |
 | `Y` | yellow door |
 
-Keys are billboard pickup objects. Doors are grid cells: closed doors block movement and render as colored wall slices; open doors become passable.
+Keys are billboard pickup objects. Doors are grid cells: closed doors block movement and render as paneled colored wall slices; open doors become passable.
 
 ## Actions
 
