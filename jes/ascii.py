@@ -15,6 +15,7 @@ from jes.objects import (
     OBJECT_GOAL,
     OBJECT_NONE,
     OBJECT_SYMBOLS,
+    WALL_SYMBOLS,
 )
 
 
@@ -23,6 +24,8 @@ class Maze:
     wall_grid: jax.Array
     color_grid: jax.Array
     spawn_xy: jax.Array
+    spawn_xy_options: jax.Array
+    spawn_count: jax.Array
     spawn_theta: jax.Array
     goal_xy: jax.Array
     object_xy: jax.Array
@@ -36,6 +39,8 @@ class MazeBatch:
     wall_grids: jax.Array
     color_grids: jax.Array
     spawn_xy: jax.Array
+    spawn_xy_options: jax.Array
+    spawn_count: jax.Array
     spawn_theta: jax.Array
     goal_xy: jax.Array
     object_xy: jax.Array
@@ -68,19 +73,22 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
     wall_grid = np.ones((height, width), dtype=np.bool_)
     color_grid = np.full((height, width), wall_color_id, dtype=np.int32)
     door_grid = np.zeros((height, width), dtype=np.int32)
-    spawn_xy: np.ndarray | None = None
+    spawn_xy_options: list[np.ndarray] = []
     goal_xy: np.ndarray | None = None
     object_xy: list[np.ndarray] = []
     object_type: list[int] = []
     object_color: list[int] = []
 
-    allowed = {"#", ".", "S", " "} | set(OBJECT_SYMBOLS) | set(DOOR_SYMBOLS)
+    allowed = (
+        {".", "S", " "} | set(WALL_SYMBOLS) | set(OBJECT_SYMBOLS) | set(DOOR_SYMBOLS)
+    )
     for row_idx, row in enumerate(rows):
         for col_idx, char in enumerate(row):
             if char not in allowed:
                 raise ValueError(f"unsupported maze symbol {char!r}")
 
-            if char == "#":
+            if char in WALL_SYMBOLS:
+                color_grid[row_idx, col_idx] = WALL_SYMBOLS[char]
                 continue
 
             wall_grid[row_idx, col_idx] = False
@@ -88,9 +96,7 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
             xy = np.array([col_idx + 0.5, row_idx + 0.5], dtype=np.float32)
 
             if char == "S":
-                if spawn_xy is not None:
-                    raise ValueError("maze must contain exactly one spawn")
-                spawn_xy = xy
+                spawn_xy_options.append(xy)
             elif char in OBJECT_SYMBOLS:
                 kind, color = OBJECT_SYMBOLS[char]
                 object_xy.append(xy)
@@ -103,15 +109,18 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
             elif char in DOOR_SYMBOLS:
                 door_grid[row_idx, col_idx] = DOOR_SYMBOLS[char]
 
-    if spawn_xy is None:
-        raise ValueError("maze must contain exactly one spawn")
+    if not spawn_xy_options:
+        raise ValueError("maze must contain at least one spawn")
     if goal_xy is None:
         raise ValueError("maze must contain exactly one goal")
 
+    spawn_xy_array = np.stack(spawn_xy_options)
     return Maze(
         wall_grid=jnp.asarray(wall_grid),
         color_grid=jnp.asarray(color_grid),
-        spawn_xy=jnp.asarray(spawn_xy),
+        spawn_xy=jnp.asarray(spawn_xy_array[0]),
+        spawn_xy_options=jnp.asarray(spawn_xy_array),
+        spawn_count=jnp.asarray(len(spawn_xy_options), dtype=jnp.int32),
         spawn_theta=jnp.asarray(0.0, dtype=jnp.float32),
         goal_xy=jnp.asarray(goal_xy),
         object_xy=jnp.asarray(np.stack(object_xy), dtype=jnp.float32),
@@ -134,9 +143,11 @@ def stack_mazes(mazes: list[Maze]) -> MazeBatch:
     max_h = max(int(maze.wall_grid.shape[0]) for maze in mazes)
     max_w = max(int(maze.wall_grid.shape[1]) for maze in mazes)
     max_objects = max(int(maze.object_type.shape[0]) for maze in mazes)
+    max_spawns = max(int(maze.spawn_xy_options.shape[0]) for maze in mazes)
 
     wall_grids = []
     color_grids = []
+    spawn_xy_options = []
     object_xy = []
     object_type = []
     object_color = []
@@ -169,6 +180,15 @@ def stack_mazes(mazes: list[Maze]) -> MazeBatch:
                 constant_values=KEY_COLOR_NONE,
             )
         )
+        pad_spawns = max_spawns - int(maze.spawn_xy_options.shape[0])
+        spawn_xy_options.append(
+            jnp.pad(
+                maze.spawn_xy_options,
+                ((0, pad_spawns), (0, 0)),
+                mode="constant",
+                constant_values=0,
+            )
+        )
         pad_objects = max_objects - int(maze.object_type.shape[0])
         object_xy.append(
             jnp.pad(
@@ -199,6 +219,8 @@ def stack_mazes(mazes: list[Maze]) -> MazeBatch:
         wall_grids=jnp.stack(wall_grids),
         color_grids=jnp.stack(color_grids),
         spawn_xy=jnp.stack([maze.spawn_xy for maze in mazes]),
+        spawn_xy_options=jnp.stack(spawn_xy_options),
+        spawn_count=jnp.asarray([maze.spawn_count for maze in mazes], dtype=jnp.int32),
         spawn_theta=jnp.stack([maze.spawn_theta for maze in mazes]),
         goal_xy=jnp.stack([maze.goal_xy for maze in mazes]),
         object_xy=jnp.stack(object_xy),

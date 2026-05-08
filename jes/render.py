@@ -26,11 +26,22 @@ DEFAULT_WALL_PALETTE = jnp.asarray(
         [216, 56, 48],
         [56, 112, 224],
         [224, 192, 48],
+        [28, 32, 96],
+        [118, 112, 96],
+        [150, 74, 42],
+        [88, 106, 116],
+        [150, 136, 98],
+        [112, 74, 48],
+        [180, 184, 174],
+        [38, 52, 88],
+        [116, 82, 58],
     ],
     dtype=jnp.float32,
 )
 CEILING_RGB = jnp.asarray([70, 70, 90], dtype=jnp.float32)
 FLOOR_RGB = jnp.asarray([45, 45, 45], dtype=jnp.float32)
+FLOOR_CHECKER_DARK_RGB = jnp.asarray([42, 40, 36], dtype=jnp.float32)
+FLOOR_CHECKER_LIGHT_RGB = jnp.asarray([78, 70, 56], dtype=jnp.float32)
 
 
 def _lookup_grid(grid: jax.Array, cell_x: jax.Array, cell_y: jax.Array) -> jax.Array:
@@ -105,6 +116,8 @@ def render_first_person(
     object_active: jax.Array | None = None,
     goal_xy: jax.Array | None = None,
     color_palette: jax.Array = DEFAULT_WALL_PALETTE,
+    wall_height_scale: float = 1.0,
+    floor_pattern: bool = False,
 ) -> jax.Array:
     """Render a Wolfenstein-style RGB observation as uint8 [H, W, 3]."""
 
@@ -120,7 +133,7 @@ def render_first_person(
     )
     ray_angles = _ray_angles(theta, img_w, fov)
     corrected = jnp.maximum(distances * jnp.cos(ray_angles - theta), 1.0e-3)
-    wall_height = img_h / corrected
+    wall_height = img_h * wall_height_scale / corrected
     wall_top = img_h / 2.0 - wall_height / 2.0
     wall_bottom = img_h / 2.0 + wall_height / 2.0
 
@@ -136,6 +149,21 @@ def render_first_person(
         ceiling_mask[..., None],
         CEILING_RGB,
         jnp.where(wall_mask[..., None], wall_rgb[None, :, :], FLOOR_RGB),
+    )
+    rgb = jax.lax.cond(
+        jnp.asarray(floor_pattern),
+        lambda image: _apply_floor_checker_pattern(
+            image,
+            pos,
+            theta,
+            ray_angles,
+            wall_mask,
+            ceiling_mask,
+            img_h=img_h,
+            wall_height_scale=wall_height_scale,
+        ),
+        lambda image: image,
+        rgb,
     )
     rgb = _apply_door_panel_pattern(
         rgb,
@@ -173,6 +201,39 @@ def render_first_person(
             fov=fov,
         )
     return jnp.clip(rgb, 0, 255).astype(jnp.uint8)
+
+
+def _apply_floor_checker_pattern(
+    rgb: jax.Array,
+    pos: jax.Array,
+    theta: jax.Array,
+    ray_angles: jax.Array,
+    wall_mask: jax.Array,
+    ceiling_mask: jax.Array,
+    *,
+    img_h: int,
+    wall_height_scale: float,
+    checker_size: float = 1.0,
+) -> jax.Array:
+    rows = jnp.arange(img_h, dtype=jnp.float32)[:, None]
+    below_horizon = rows > (img_h / 2.0)
+    floor_mask = below_horizon & ~wall_mask & ~ceiling_mask
+
+    vertical = jnp.maximum(2.0 * rows - img_h, 1.0)
+    perp_depth = (img_h * wall_height_scale) / vertical
+    ray_depth = perp_depth / jnp.maximum(jnp.cos(ray_angles - theta)[None, :], 1.0e-3)
+    floor_x = pos[0] + jnp.cos(ray_angles)[None, :] * ray_depth
+    floor_y = pos[1] + jnp.sin(ray_angles)[None, :] * ray_depth
+    checker = jnp.mod(
+        jnp.floor(floor_x / checker_size) + jnp.floor(floor_y / checker_size),
+        2.0,
+    )
+    floor_rgb = jnp.where(
+        checker[..., None] < 1.0,
+        FLOOR_CHECKER_DARK_RGB,
+        FLOOR_CHECKER_LIGHT_RGB,
+    )
+    return jnp.where(floor_mask[..., None], floor_rgb, rgb)
 
 
 def _apply_door_panel_pattern(

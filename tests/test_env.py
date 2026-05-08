@@ -8,7 +8,12 @@ from jes.env import (
     ACTION_TURN_LEFT,
     RayMazeEnv,
 )
-from jes.maps import MAZE_SIMPLE
+from jes.maps import (
+    MAP_EPISODE_HORIZONS_BY_NAME,
+    MAZE_MY_WAY_HOME,
+    MAZE_SIMPLE,
+    VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
+)
 from jes.objects import KEY_COLOR_BLUE, KEY_COLOR_RED, OBJECT_GOAL, OBJECT_KEY
 
 
@@ -24,6 +29,73 @@ def test_reset_returns_rgb_observation_and_spawn_state():
     assert not bool(state.done)
     assert jnp.array_equal(state.object_active, jnp.asarray([True]))
     assert jnp.array_equal(state.carried_keys, jnp.asarray([False, False, False, False]))
+
+
+def test_reset_samples_multiple_spawns_from_key():
+    env = RayMazeEnv.from_ascii(
+        [
+            """
+            #######
+            #S.S.G#
+            #######
+            """
+        ]
+    )
+    keys = jax.random.split(jax.random.key(0), 64)
+    maze_ids = jnp.zeros((64,), dtype=jnp.int32)
+
+    _, states = jax.vmap(env.reset)(keys, maze_ids)
+    valid_spawns = jnp.asarray([[1.5, 1.5], [3.5, 1.5]], dtype=jnp.float32)
+    is_valid_spawn = jnp.any(
+        jnp.all(states.pos[:, None, :] == valid_spawns[None, :, :], axis=-1),
+        axis=1,
+    )
+    unique_spawns = jnp.unique(states.pos, axis=0)
+
+    assert bool(jnp.all(is_valid_spawn))
+    assert int(unique_spawns.shape[0]) == 2
+
+
+def test_episode_horizons_can_vary_by_maze():
+    env = RayMazeEnv.from_ascii(
+        [
+            """
+            #####
+            #S.G#
+            #####
+            """,
+            """
+            #####
+            #S.G#
+            #####
+            """,
+        ],
+        episode_horizons=[1, 2],
+    )
+    _, short_state = env.reset(jax.random.key(0), 0)
+    _, long_state = env.reset(jax.random.key(1), 1)
+
+    _, short_state, _, short_done, _ = env.step(short_state, ACTION_TURN_LEFT)
+    _, long_state, _, long_done, _ = env.step(long_state, ACTION_TURN_LEFT)
+    _, long_state, _, long_done2, _ = env.step(long_state, ACTION_TURN_LEFT)
+
+    assert bool(short_done)
+    assert bool(short_state.done)
+    assert not bool(long_done)
+    assert bool(long_done2)
+    assert bool(long_state.done)
+
+
+def test_my_way_home_horizon_matches_vizdoom_timeout():
+    env = RayMazeEnv.from_ascii(
+        [MAZE_MY_WAY_HOME],
+        episode_horizons=[
+            MAP_EPISODE_HORIZONS_BY_NAME["my-way-home"],
+        ],
+    )
+
+    assert VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT == 2100
+    assert int(env.episode_horizons[0]) == VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT
 
 
 def test_forward_collision_noops_at_wall():

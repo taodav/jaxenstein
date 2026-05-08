@@ -31,6 +31,19 @@ DOOR_SYMBOLS = {
     "Y": KEY_COLOR_YELLOW,
 }
 
+WALL_SYMBOLS = {
+    "#": 1,
+    "1": 7,
+    "2": 8,
+    "3": 9,
+    "4": 10,
+    "5": 11,
+    "6": 12,
+    "7": 13,
+    "8": 14,
+    "9": 15,
+}
+
 OBJECT_CORE_PALETTE_BY_COLOR = jnp.asarray(
     [
         [0, 0, 0],

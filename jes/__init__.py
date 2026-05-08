@@ -10,7 +10,17 @@ from jes.env import (
     RayMazeEnv,
     State,
 )
-from jes.maps import DEFAULT_MAZES, MAPS_BY_NAME, MAZE_KEY_DOOR, MAZE_SIMPLE
+from jes.maps import (
+    DEFAULT_MAZES,
+    MAP_EPISODE_HORIZONS_BY_NAME,
+    MAP_RENDER_KWARGS_BY_NAME,
+    MAPS_BY_NAME,
+    MAZE_KEY_DOOR,
+    MAZE_MY_WAY_HOME,
+    MAZE_MY_WAY_HOME_COLORLESS,
+    MAZE_SIMPLE,
+    VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
+)
 from jes.objects import (
     KEY_COLOR_BLUE,
     KEY_COLOR_NONE,
@@ -20,6 +30,7 @@ from jes.objects import (
     OBJECT_GOAL,
     OBJECT_KEY,
     OBJECT_NONE,
+    WALL_SYMBOLS,
 )
 from jes.render import raycast_fixed_step, render_billboard_sprites, render_first_person
 
@@ -33,7 +44,12 @@ __all__ = [
     "EnvParams",
     "MAZE_SIMPLE",
     "MAZE_KEY_DOOR",
+    "MAZE_MY_WAY_HOME",
+    "MAZE_MY_WAY_HOME_COLORLESS",
+    "MAP_EPISODE_HORIZONS_BY_NAME",
+    "MAP_RENDER_KWARGS_BY_NAME",
     "MAPS_BY_NAME",
+    "VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT",
     "Maze",
     "MazeBatch",
     "NUM_ACTIONS",
@@ -41,6 +57,7 @@ __all__ = [
     "OBJECT_GOAL",
     "OBJECT_KEY",
     "OBJECT_NONE",
+    "WALL_SYMBOLS",
     "KEY_COLOR_BLUE",
     "KEY_COLOR_NONE",
     "KEY_COLOR_RED",

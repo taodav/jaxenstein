@@ -68,11 +68,14 @@ class RayMazeEnv:
         maze_batch: MazeBatch,
         *,
         params: EnvParams | None = None,
+        episode_horizons: Sequence[int] | jax.Array | int | None = None,
         img_h: int = 64,
         img_w: int = 64,
         fov: float = jnp.pi / 3.0,
         max_depth: float = 16.0,
         num_depth_samples: int = 128,
+        wall_height_scale: float = 1.0,
+        floor_pattern: bool = False,
     ):
         self.maze_batch = maze_batch
         self.params = EnvParams() if params is None else params
@@ -81,6 +84,13 @@ class RayMazeEnv:
         self.fov = fov
         self.max_depth = max_depth
         self.num_depth_samples = num_depth_samples
+        self.wall_height_scale = wall_height_scale
+        self.floor_pattern = floor_pattern
+        self.episode_horizons = _episode_horizon_array(
+            episode_horizons,
+            num_mazes=int(maze_batch.wall_grids.shape[0]),
+            default_horizon=self.params.horizon,
+        )
 
     @classmethod
     def from_mazes(cls, mazes: Sequence[Maze], **kwargs) -> "RayMazeEnv":
@@ -99,10 +109,16 @@ class RayMazeEnv:
         return (self.img_h, self.img_w, 3)
 
     def reset(self, key: jax.Array, maze_id: jax.Array | int = 0) -> tuple[jax.Array, State]:
-        del key
         maze_id = jnp.asarray(maze_id, dtype=jnp.int32)
+        spawn_idx = jax.random.randint(
+            key,
+            shape=(),
+            minval=0,
+            maxval=self.maze_batch.spawn_count[maze_id],
+            dtype=jnp.int32,
+        )
         state = State(
-            pos=self.maze_batch.spawn_xy[maze_id],
+            pos=self.maze_batch.spawn_xy_options[maze_id, spawn_idx],
             theta=self.maze_batch.spawn_theta[maze_id],
             t=jnp.asarray(0, dtype=jnp.int32),
             done=jnp.asarray(False),
@@ -184,7 +200,8 @@ class RayMazeEnv:
         goal_xy = self.maze_batch.goal_xy[state.maze_id]
         distance_to_goal = jnp.linalg.norm(pos - goal_xy)
         t = state.t + jnp.where(active, 1, 0).astype(jnp.int32)
-        done = state.done | reached_goal | (t >= self.params.horizon)
+        episode_horizon = self.episode_horizons[state.maze_id]
+        done = state.done | reached_goal | (t >= episode_horizon)
         reward = jnp.where(active & reached_goal, 1.0, 0.0).astype(jnp.float32)
 
         new_state = State(
@@ -237,6 +254,8 @@ class RayMazeEnv:
             object_type=self.maze_batch.object_type[state.maze_id],
             object_color=self.maze_batch.object_color[state.maze_id],
             object_active=state.object_active,
+            wall_height_scale=self.wall_height_scale,
+            floor_pattern=self.floor_pattern,
         )
 
 
@@ -295,8 +314,26 @@ def _interact_with_door(
         & has_key
     )
 
-    rows = jnp.arange(h)[:, None]
-    cols = jnp.arange(w)[None, :]
-    target_cell = (rows == clipped_y) & (cols == clipped_x)
-    new_door_open = door_open | (opened_door & target_cell)
+    new_cell_open = door_open[clipped_y, clipped_x] | opened_door
+    new_door_open = door_open.at[clipped_y, clipped_x].set(new_cell_open)
     return new_door_open, opened_door, jnp.where(opened_door, door_color, KEY_COLOR_NONE)
+
+
+def _episode_horizon_array(
+    episode_horizons: Sequence[int] | jax.Array | int | None,
+    *,
+    num_mazes: int,
+    default_horizon: jax.Array,
+) -> jax.Array:
+    if episode_horizons is None:
+        return jnp.full((num_mazes,), default_horizon, dtype=jnp.int32)
+
+    horizons = jnp.asarray(episode_horizons, dtype=jnp.int32)
+    if horizons.ndim == 0:
+        return jnp.full((num_mazes,), horizons, dtype=jnp.int32)
+    if horizons.shape != (num_mazes,):
+        raise ValueError(
+            f"episode_horizons must be scalar or have shape ({num_mazes},), "
+            f"got {horizons.shape}"
+        )
+    return horizons

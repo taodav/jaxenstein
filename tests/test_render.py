@@ -55,6 +55,31 @@ def test_render_object_color_defaults_when_omitted():
     assert rgb.shape == (64, 64, 3)
 
 
+def test_floor_pattern_and_wall_height_scale_affect_render():
+    maze = parse_ascii_maze(MAZE_SIMPLE)
+
+    plain = render_first_person(
+        maze.spawn_xy,
+        maze.spawn_theta,
+        maze.wall_grid,
+        maze.color_grid,
+    )
+    patterned = render_first_person(
+        maze.spawn_xy,
+        maze.spawn_theta,
+        maze.wall_grid,
+        maze.color_grid,
+        wall_height_scale=1.35,
+        floor_pattern=True,
+    )
+
+    assert patterned.shape == plain.shape
+    assert not jnp.array_equal(patterned, plain)
+    assert int(jnp.unique(patterned[40:].reshape((-1, 3)), axis=0).shape[0]) > int(
+        jnp.unique(plain[40:].reshape((-1, 3)), axis=0).shape[0]
+    )
+
+
 def test_key_sprite_is_sparse_key_shape():
     maze = parse_ascii_maze(
         """
@@ -162,6 +187,16 @@ def test_render_jit_and_vmap():
         object_color=maze.object_color,
         object_active=jnp.ones_like(maze.object_type, dtype=jnp.bool_),
     )
+    patterned = jax.jit(
+        lambda pos, theta, wall_grid, color_grid: render_first_person(
+            pos,
+            theta,
+            wall_grid,
+            color_grid,
+            wall_height_scale=1.35,
+            floor_pattern=True,
+        )
+    )(maze.spawn_xy, maze.spawn_theta, maze.wall_grid, maze.color_grid)
     batched = jax.vmap(render_first_person)(positions, thetas, wall_grids, color_grids)
     batched_with_objects = jax.vmap(
         lambda pos, theta, wall_grid, color_grid, xy, kind, color, active: render_first_person(
@@ -186,5 +221,6 @@ def test_render_jit_and_vmap():
     )
 
     assert rgb.shape == (64, 64, 3)
+    assert patterned.shape == (64, 64, 3)
     assert batched.shape == (2, 64, 64, 3)
     assert batched_with_objects.shape == (2, 64, 64, 3)

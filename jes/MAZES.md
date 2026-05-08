@@ -18,7 +18,9 @@ MY_MAZE = """
 env = RayMazeEnv.from_ascii([MY_MAZE])
 ```
 
-Every maze must contain exactly one spawn and exactly one goal.
+Every maze must contain at least one spawn and exactly one goal. If a map has
+multiple `S` cells, `RayMazeEnv.reset` samples uniformly from them using the
+reset key.
 
 ## Coordinates
 
@@ -29,16 +31,18 @@ x = col + 0.5
 y = row + 0.5
 ```
 
-The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor. `#` remains a static wall.
+The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor.
+`#` and digit wall symbols remain static walls.
 
 ## Symbol Table
 
 | Symbol | Meaning |
 | --- | --- |
-| `#` | static wall |
+| `#` | default static wall |
+| `1`-`9` | colored static wall |
 | `.` | floor |
 | space | floor |
-| `S` | spawn |
+| `S` | spawn candidate |
 | `G` | yellow goal object |
 | `K` | red key |
 | `r` | red key |
@@ -87,6 +91,19 @@ Interactive play:
 
 ```bash
 uv run python play.py --maze key-door
+```
+
+## ViZDoom My Way Home
+
+`jes.maps.MAZE_MY_WAY_HOME` is a rasterized version of ViZDoom's bundled My Way Home map. The footprint is converted from the UDMF WAD at 32 Doom units per ASCII cell, with the green vest represented by `G` and the original 17 spawn map points represented by `S`.
+
+The default `my-way-home` variant uses digit wall symbols to approximate the original WAD texture colors. `my-way-home-colorless` uses the same topology with default `#` walls. Both variants use a checker floor pattern and taller walls in `play.py`.
+
+ViZDoom's bundled `my_way_home.cfg` sets `episode_timeout = 2100`. Jaxenstein mirrors that in `MAP_EPISODE_HORIZONS_BY_NAME`, and `play.py` passes that horizon automatically.
+
+```bash
+uv run python play.py --maze my-way-home
+uv run python play.py --maze my-way-home-colorless
 ```
 
 ## Custom Map Example

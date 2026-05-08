@@ -57,6 +57,18 @@ Play the key-door demo:
 uv run python play.py --maze key-door
 ```
 
+Play the ViZDoom My Way Home maze conversion:
+
+```bash
+uv run python play.py --maze my-way-home
+```
+
+This map uses colored wall symbols, a checker floor, taller walls, and the original ViZDoom `episode_timeout` of 2100 steps. The same topology is also available without wall colors:
+
+```bash
+uv run python play.py --maze my-way-home-colorless
+```
+
 Record a GIF of the trajectory:
 
 ```bash
@@ -113,7 +125,7 @@ MAZE_KEY_DOOR = """
 """
 ```
 
-`S` is the spawn, `G` is the goal, lowercase symbols are colored keys, and uppercase colored symbols are doors. See [jes/MAZES.md](jes/MAZES.md) for the full symbol table and examples for creating custom maps.
+`S` marks a spawn candidate, `G` is the goal, lowercase symbols are colored keys, uppercase colored symbols are doors, and digit symbols are colored walls. Multiple `S` cells are sampled uniformly on reset. See [jes/MAZES.md](jes/MAZES.md) for the full symbol table and examples for creating custom maps.
 
 ## Tests
 

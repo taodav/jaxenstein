@@ -24,8 +24,13 @@ from jes import (
     ACTION_TURN_LEFT,
     ACTION_TURN_RIGHT,
     RayMazeEnv,
+    State,
 )
-from jes.maps import MAPS_BY_NAME
+from jes.maps import (
+    MAP_EPISODE_HORIZONS_BY_NAME,
+    MAP_RENDER_KWARGS_BY_NAME,
+    MAPS_BY_NAME,
+)
 
 
 KEY_ACTIONS = {
@@ -43,7 +48,11 @@ class Player:
     def __init__(
         self, maze_name: str, scale: int, tick_ms: int, record_path: Path | None
     ):
-        self.env = RayMazeEnv.from_ascii([MAPS_BY_NAME[maze_name]])
+        self.env = RayMazeEnv.from_ascii(
+            [MAPS_BY_NAME[maze_name]],
+            episode_horizons=MAP_EPISODE_HORIZONS_BY_NAME.get(maze_name),
+            **MAP_RENDER_KWARGS_BY_NAME.get(maze_name, {}),
+        )
         self.scale = scale
         self.tick_ms = tick_ms
         self.record_path = record_path
@@ -52,7 +61,7 @@ class Player:
         self.step_fn = jax.jit(self.env.step)
         self.reset_fn = jax.jit(self.env.reset)
 
-        self.obs, self.state = self.reset_fn(self.key, jnp.asarray(0, dtype=jnp.int32))
+        self.obs, self.state = self._reset_env()
         self._warmup()
         self.pressed_keys: set[str] = set()
         self.running = True
@@ -96,10 +105,14 @@ class Player:
     def on_key_release(self, event: tk.Event) -> None:
         self.pressed_keys.discard(event.keysym.lower())
 
+    def _reset_env(self) -> tuple[jax.Array, State]:
+        self.key, reset_key = jax.random.split(self.key)
+        return self.reset_fn(reset_key, jnp.asarray(0, dtype=jnp.int32))
+
     def reset(self) -> None:
         self.pressed_keys.clear()
         self.episode_done_announced = False
-        self.obs, self.state = self.reset_fn(self.key, jnp.asarray(0, dtype=jnp.int32))
+        self.obs, self.state = self._reset_env()
         self.draw()
 
     def tick(self) -> None:
