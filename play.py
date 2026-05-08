@@ -46,12 +46,20 @@ DEFAULT_RECORD_PATH = "trajectory.gif"
 
 class Player:
     def __init__(
-        self, maze_name: str, scale: int, tick_ms: int, record_path: Path | None
+        self,
+        maze_name: str,
+        scale: int,
+        tick_ms: int,
+        record_path: Path | None,
+        render_size: tuple[int, int],
     ):
+        render_w, render_h = render_size
         self.env = RayMazeEnv.from_ascii(
             [MAPS_BY_NAME[maze_name]],
             episode_horizons=MAP_EPISODE_HORIZONS_BY_NAME.get(maze_name),
             **MAP_RENDER_KWARGS_BY_NAME.get(maze_name, {}),
+            img_h=render_h,
+            img_w=render_w,
         )
         self.scale = scale
         self.tick_ms = tick_ms
@@ -214,13 +222,40 @@ class Player:
         print(f"Saved recording to {self.record_path}")
 
 
+def _parse_resolution(value: str) -> tuple[int, int]:
+    raw = value.lower().replace(" ", "")
+    if "x" in raw:
+        width_text, height_text = raw.split("x", 1)
+    else:
+        width_text = height_text = raw
+
+    try:
+        width = int(width_text)
+        height = int(height_text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "--resolution must be an integer or WIDTHxHEIGHT"
+        ) from exc
+
+    if width < 1 or height < 1:
+        raise argparse.ArgumentTypeError("--resolution dimensions must be at least 1")
+    return width, height
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--scale",
         type=int,
         default=8,
-        help="Integer display scale for the 64x64 render.",
+        help="Integer display scale applied after native rendering.",
+    )
+    parser.add_argument(
+        "--resolution",
+        type=_parse_resolution,
+        default=(64, 64),
+        metavar="N|WIDTHxHEIGHT",
+        help="Native render resolution. Use N for square output, e.g. 128, or WIDTHxHEIGHT.",
     )
     parser.add_argument(
         "--tick-ms",
@@ -257,6 +292,7 @@ def main() -> None:
         args.scale,
         args.tick_ms,
         None if args.record is None else Path(args.record),
+        args.resolution,
     ).run()
 
 

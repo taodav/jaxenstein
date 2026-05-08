@@ -32,7 +32,12 @@ from jes.objects import (
     OBJECT_NONE,
     WALL_SYMBOLS,
 )
-from jes.render import raycast_fixed_step, render_billboard_sprites, render_first_person
+from jes.render import (
+    raycast_dda,
+    raycast_fixed_step,
+    render_billboard_sprites,
+    render_first_person,
+)
 
 __all__ = [
     "ACTION_INTERACT",
@@ -65,6 +70,7 @@ __all__ = [
     "RayMazeEnv",
     "State",
     "parse_ascii_maze",
+    "raycast_dda",
     "raycast_fixed_step",
     "render_billboard_sprites",
     "render_first_person",

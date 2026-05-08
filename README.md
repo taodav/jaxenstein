@@ -63,7 +63,7 @@ Play the ViZDoom My Way Home maze conversion:
 uv run python play.py --maze my-way-home
 ```
 
-This map uses colored wall symbols, a checker floor, taller walls, and the original ViZDoom `episode_timeout` of 2100 steps. The same topology is also available without wall colors:
+All maps render with a higher wall scale and checker floor by default. This map also uses colored wall symbols and the original ViZDoom `episode_timeout` of 2100 steps. The same topology is available without wall colors:
 
 ```bash
 uv run python play.py --maze my-way-home-colorless
@@ -78,7 +78,8 @@ uv run python play.py --maze key-door --record runs/key-door.gif
 Useful display options:
 
 ```bash
-uv run python play.py --scale 10 --tick-ms 30
+uv run python play.py --resolution 128 --scale 4 --tick-ms 30
+uv run python play.py --resolution 320x240 --scale 2
 ```
 
 ## Python Usage
@@ -90,7 +91,7 @@ import jax.numpy as jnp
 from jes import ACTION_MOVE_FORWARD, RayMazeEnv
 from jes.maps import MAZE_SIMPLE
 
-env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
+env = RayMazeEnv.from_ascii([MAZE_SIMPLE], img_h=128, img_w=128)
 obs, state = env.reset(jax.random.key(0), jnp.asarray(0, dtype=jnp.int32))
 obs, state, reward, done, info = env.step(state, ACTION_MOVE_FORWARD)
 

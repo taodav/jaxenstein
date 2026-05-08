@@ -27,8 +27,22 @@ def test_reset_returns_rgb_observation_and_spawn_state():
     assert jnp.allclose(state.pos, jnp.asarray([1.5, 1.5]))
     assert int(state.t) == 0
     assert not bool(state.done)
+    assert env.floor_pattern is True
+    assert env.wall_height_scale == 1.35
     assert jnp.array_equal(state.object_active, jnp.asarray([True]))
     assert jnp.array_equal(state.carried_keys, jnp.asarray([False, False, False, False]))
+
+
+def test_custom_observation_resolution():
+    env = RayMazeEnv.from_ascii([MAZE_SIMPLE], img_h=96, img_w=128)
+
+    obs, state = env.reset(jax.random.key(0), 0)
+    rendered = env.render(state)
+
+    assert env.observation_shape == (96, 128, 3)
+    assert obs.shape == (96, 128, 3)
+    assert rendered.shape == (96, 128, 3)
+    assert obs.dtype == jnp.uint8
 
 
 def test_reset_samples_multiple_spawns_from_key():

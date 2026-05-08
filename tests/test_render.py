@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jes.ascii import parse_ascii_maze
 from jes.maps import MAZE_SIMPLE
 from jes.objects import KEY_COLOR_RED, KEY_COLOR_YELLOW, door_wall_color_id
-from jes.render import raycast_fixed_step, render_first_person
+from jes.render import raycast_dda, raycast_fixed_step, render_first_person
 
 
 def test_raycast_depth_changes_with_rotation():
@@ -18,6 +18,22 @@ def test_raycast_depth_changes_with_rotation():
     )
 
     assert east_depth[32] > west_depth[32]
+
+
+def test_raycast_dda_hits_exact_grid_boundary():
+    maze = parse_ascii_maze(MAZE_SIMPLE)
+    pos = jnp.asarray([1.3, 1.5], dtype=jnp.float32)
+
+    depth, wall_ids = raycast_dda(
+        pos,
+        jnp.asarray(0.0, dtype=jnp.float32),
+        maze.wall_grid,
+        maze.color_grid,
+        img_w=65,
+    )
+
+    assert jnp.isclose(depth[32], 6.7, atol=1.0e-5)
+    assert int(wall_ids[32]) == 1
 
 
 def test_render_shape_dtype_and_nonuniform_pixels():
@@ -58,25 +74,25 @@ def test_render_object_color_defaults_when_omitted():
 def test_floor_pattern_and_wall_height_scale_affect_render():
     maze = parse_ascii_maze(MAZE_SIMPLE)
 
-    plain = render_first_person(
+    flat = render_first_person(
         maze.spawn_xy,
         maze.spawn_theta,
         maze.wall_grid,
         maze.color_grid,
+        wall_height_scale=1.0,
+        floor_pattern=False,
     )
-    patterned = render_first_person(
+    styled = render_first_person(
         maze.spawn_xy,
         maze.spawn_theta,
         maze.wall_grid,
         maze.color_grid,
-        wall_height_scale=1.35,
-        floor_pattern=True,
     )
 
-    assert patterned.shape == plain.shape
-    assert not jnp.array_equal(patterned, plain)
-    assert int(jnp.unique(patterned[40:].reshape((-1, 3)), axis=0).shape[0]) > int(
-        jnp.unique(plain[40:].reshape((-1, 3)), axis=0).shape[0]
+    assert styled.shape == flat.shape
+    assert not jnp.array_equal(styled, flat)
+    assert int(jnp.unique(styled[40:].reshape((-1, 3)), axis=0).shape[0]) > int(
+        jnp.unique(flat[40:].reshape((-1, 3)), axis=0).shape[0]
     )
 
 

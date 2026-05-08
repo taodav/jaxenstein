@@ -74,8 +74,8 @@ class RayMazeEnv:
         fov: float = jnp.pi / 3.0,
         max_depth: float = 16.0,
         num_depth_samples: int = 128,
-        wall_height_scale: float = 1.0,
-        floor_pattern: bool = False,
+        wall_height_scale: float = 1.35,
+        floor_pattern: bool = True,
     ):
         self.maze_batch = maze_batch
         self.params = EnvParams() if params is None else params

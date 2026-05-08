@@ -1,4 +1,4 @@
-"""Fixed-step first-person raycasting renderer."""
+"""First-person raycasting renderer."""
 
 from __future__ import annotations
 
@@ -20,28 +20,28 @@ from jes.objects import (
 DEFAULT_WALL_PALETTE = jnp.asarray(
     [
         [150, 150, 150],
-        [126, 132, 144],
-        [72, 128, 96],
-        [72, 96, 160],
-        [216, 56, 48],
-        [56, 112, 224],
-        [224, 192, 48],
-        [28, 32, 96],
-        [118, 112, 96],
-        [150, 74, 42],
-        [88, 106, 116],
-        [150, 136, 98],
-        [112, 74, 48],
-        [180, 184, 174],
-        [38, 52, 88],
-        [116, 82, 58],
+        [176, 124, 78],
+        [74, 166, 104],
+        [78, 120, 206],
+        [236, 44, 36],
+        [48, 126, 255],
+        [255, 212, 38],
+        [24, 28, 120],
+        [156, 142, 108],
+        [190, 84, 38],
+        [106, 132, 148],
+        [214, 176, 82],
+        [142, 82, 42],
+        [220, 224, 214],
+        [30, 58, 126],
+        [156, 94, 58],
     ],
     dtype=jnp.float32,
 )
-CEILING_RGB = jnp.asarray([70, 70, 90], dtype=jnp.float32)
-FLOOR_RGB = jnp.asarray([45, 45, 45], dtype=jnp.float32)
-FLOOR_CHECKER_DARK_RGB = jnp.asarray([42, 40, 36], dtype=jnp.float32)
-FLOOR_CHECKER_LIGHT_RGB = jnp.asarray([78, 70, 56], dtype=jnp.float32)
+CEILING_RGB = jnp.asarray([184, 218, 238], dtype=jnp.float32)
+FLOOR_RGB = jnp.asarray([54, 47, 38], dtype=jnp.float32)
+FLOOR_CHECKER_DARK_RGB = jnp.asarray([48, 42, 34], dtype=jnp.float32)
+FLOOR_CHECKER_LIGHT_RGB = jnp.asarray([126, 104, 70], dtype=jnp.float32)
 
 
 def _lookup_grid(grid: jax.Array, cell_x: jax.Array, cell_y: jax.Array) -> jax.Array:
@@ -94,6 +94,119 @@ def raycast_fixed_step(
     return distances, wall_ids
 
 
+def raycast_dda(
+    pos: jax.Array,
+    theta: jax.Array,
+    wall_grid: jax.Array,
+    color_grid: jax.Array,
+    *,
+    img_w: int = 64,
+    fov: float = jnp.pi / 3.0,
+    max_depth: float = 16.0,
+    max_steps: int | None = None,
+) -> tuple[jax.Array, jax.Array]:
+    """Cast one ray per image column with exact grid-cell intersections."""
+
+    if max_steps is None:
+        max_steps = int(max_depth * 2.0) + 4
+
+    ray_angles = _ray_angles(theta, img_w, fov)
+    ray_dirs = jnp.stack([jnp.cos(ray_angles), jnp.sin(ray_angles)], axis=-1)
+    ray_dir_x = ray_dirs[:, 0]
+    ray_dir_y = ray_dirs[:, 1]
+
+    cell_x = jnp.floor(pos[0]).astype(jnp.int32) + jnp.zeros((img_w,), dtype=jnp.int32)
+    cell_y = jnp.floor(pos[1]).astype(jnp.int32) + jnp.zeros((img_w,), dtype=jnp.int32)
+    step_x = jnp.where(ray_dir_x < 0.0, -1, 1).astype(jnp.int32)
+    step_y = jnp.where(ray_dir_y < 0.0, -1, 1).astype(jnp.int32)
+
+    delta_x = jnp.where(
+        jnp.abs(ray_dir_x) > 1.0e-6,
+        jnp.abs(1.0 / ray_dir_x),
+        jnp.inf,
+    )
+    delta_y = jnp.where(
+        jnp.abs(ray_dir_y) > 1.0e-6,
+        jnp.abs(1.0 / ray_dir_y),
+        jnp.inf,
+    )
+    side_dist_x = jnp.where(
+        ray_dir_x < 0.0,
+        (pos[0] - cell_x.astype(jnp.float32)) * delta_x,
+        (cell_x.astype(jnp.float32) + 1.0 - pos[0]) * delta_x,
+    )
+    side_dist_y = jnp.where(
+        ray_dir_y < 0.0,
+        (pos[1] - cell_y.astype(jnp.float32)) * delta_y,
+        (cell_y.astype(jnp.float32) + 1.0 - pos[1]) * delta_y,
+    )
+
+    hit = jnp.zeros((img_w,), dtype=jnp.bool_)
+    hit_dist = jnp.full((img_w,), max_depth, dtype=jnp.float32)
+    hit_x = cell_x
+    hit_y = cell_y
+    h, w = wall_grid.shape
+
+    def body(
+        _: int,
+        state: tuple[
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+        ],
+    ) -> tuple[
+        jax.Array,
+        jax.Array,
+        jax.Array,
+        jax.Array,
+        jax.Array,
+        jax.Array,
+        jax.Array,
+        jax.Array,
+    ]:
+        cell_x, cell_y, side_dist_x, side_dist_y, hit, hit_dist, hit_x, hit_y = state
+        along_x = side_dist_x < side_dist_y
+        next_dist = jnp.where(along_x, side_dist_x, side_dist_y)
+        active = (~hit) & (next_dist <= max_depth)
+
+        next_cell_x = cell_x + jnp.where(along_x, step_x, 0)
+        next_cell_y = cell_y + jnp.where(along_x, 0, step_y)
+        inside = (
+            (next_cell_x >= 0)
+            & (next_cell_x < w)
+            & (next_cell_y >= 0)
+            & (next_cell_y < h)
+        )
+        blocked = _lookup_grid(wall_grid, next_cell_x, next_cell_y) | ~inside
+        new_hit = active & blocked
+
+        cell_x = jnp.where(active, next_cell_x, cell_x)
+        cell_y = jnp.where(active, next_cell_y, cell_y)
+        side_dist_x = jnp.where(active & along_x, side_dist_x + delta_x, side_dist_x)
+        side_dist_y = jnp.where(active & ~along_x, side_dist_y + delta_y, side_dist_y)
+        hit_dist = jnp.where(new_hit, next_dist, hit_dist)
+        hit_x = jnp.where(new_hit, next_cell_x, hit_x)
+        hit_y = jnp.where(new_hit, next_cell_y, hit_y)
+        hit = hit | new_hit
+        return cell_x, cell_y, side_dist_x, side_dist_y, hit, hit_dist, hit_x, hit_y
+
+    _, _, _, _, hit, distances, hit_x, hit_y = jax.lax.fori_loop(
+        0,
+        max_steps,
+        body,
+        (cell_x, cell_y, side_dist_x, side_dist_y, hit, hit_dist, hit_x, hit_y),
+    )
+    wall_ids = _lookup_grid(color_grid, hit_x, hit_y).astype(jnp.int32)
+    wall_ids = jnp.where(hit, wall_ids, 0)
+    distances = jnp.where(hit, distances, max_depth)
+    return distances, wall_ids
+
+
 def _ray_angles(theta: jax.Array, img_w: int, fov: float) -> jax.Array:
     camera_x = jnp.linspace(-1.0, 1.0, img_w, dtype=jnp.float32)
     return theta + jnp.arctan(camera_x * jnp.tan(fov / 2.0))
@@ -116,12 +229,12 @@ def render_first_person(
     object_active: jax.Array | None = None,
     goal_xy: jax.Array | None = None,
     color_palette: jax.Array = DEFAULT_WALL_PALETTE,
-    wall_height_scale: float = 1.0,
-    floor_pattern: bool = False,
+    wall_height_scale: float = 1.35,
+    floor_pattern: bool = True,
 ) -> jax.Array:
     """Render a Wolfenstein-style RGB observation as uint8 [H, W, 3]."""
 
-    distances, wall_ids = raycast_fixed_step(
+    distances, wall_ids = raycast_dda(
         pos,
         theta,
         wall_grid,
@@ -129,7 +242,6 @@ def render_first_person(
         img_w=img_w,
         fov=fov,
         max_depth=max_depth,
-        num_depth_samples=num_depth_samples,
     )
     ray_angles = _ray_angles(theta, img_w, fov)
     corrected = jnp.maximum(distances * jnp.cos(ray_angles - theta), 1.0e-3)
@@ -142,7 +254,7 @@ def render_first_person(
     ceiling_mask = rows < wall_top[None, :]
 
     base_wall = jnp.take(color_palette, wall_ids, axis=0, mode="clip")
-    shade = 1.0 / (1.0 + 0.1 * distances**2)
+    shade = 0.35 + 0.65 / (1.0 + 0.05 * distances**2)
     wall_rgb = base_wall * shade[:, None]
 
     rgb = jnp.where(

@@ -110,14 +110,6 @@ MAP_EPISODE_HORIZONS_BY_NAME = {
 }
 
 MAP_RENDER_KWARGS_BY_NAME = {
-    "my-way-home": {
-        "floor_pattern": True,
-        "wall_height_scale": 1.35,
-    },
-    "my-way-home-colorless": {
-        "floor_pattern": True,
-        "wall_height_scale": 1.35,
-    },
 }
 
 DEFAULT_MAZES = [MAZE_SIMPLE]
