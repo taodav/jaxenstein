@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import colorsys
+
 import jax
 import jax.numpy as jnp
 
@@ -17,8 +19,8 @@ from jes.objects import (
 )
 
 
-DEFAULT_WALL_PALETTE = jnp.asarray(
-    [
+def _make_wall_palette(size: int = 96) -> jax.Array:
+    base = [
         [150, 150, 150],
         [176, 124, 78],
         [74, 166, 104],
@@ -26,18 +28,30 @@ DEFAULT_WALL_PALETTE = jnp.asarray(
         [236, 44, 36],
         [48, 126, 255],
         [255, 212, 38],
-        [24, 28, 120],
-        [156, 142, 108],
-        [190, 84, 38],
-        [106, 132, 148],
-        [214, 176, 82],
-        [142, 82, 42],
-        [220, 224, 214],
-        [30, 58, 126],
-        [156, 94, 58],
-    ],
-    dtype=jnp.float32,
-)
+        [138, 64, 216],
+        [0, 168, 180],
+        [230, 96, 32],
+        [214, 56, 126],
+        [112, 196, 48],
+        [96, 76, 42],
+        [232, 232, 220],
+        [34, 72, 160],
+        [184, 80, 46],
+    ]
+    # Extra colors cover generated DMLab decal wall ids.
+    extra = []
+    for index in range(size - len(base)):
+        hue = (0.07 + index * 0.61803398875) % 1.0
+        saturation = 0.72 + 0.18 * ((index % 3) / 2.0)
+        value = 0.78 + 0.14 * ((index + 1) % 2)
+        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+        extra.append(
+            [round(channel * 255) for channel in rgb]
+        )
+    return jnp.asarray(base + extra, dtype=jnp.float32)
+
+
+DEFAULT_WALL_PALETTE = _make_wall_palette()
 CEILING_RGB = jnp.asarray([184, 218, 238], dtype=jnp.float32)
 FLOOR_RGB = jnp.asarray([54, 47, 38], dtype=jnp.float32)
 FLOOR_CHECKER_DARK_RGB = jnp.asarray([48, 42, 34], dtype=jnp.float32)

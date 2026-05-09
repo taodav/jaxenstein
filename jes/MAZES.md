@@ -18,7 +18,7 @@ MY_MAZE = """
 env = RayMazeEnv.from_ascii([MY_MAZE])
 ```
 
-Every maze must contain at least one spawn and exactly one goal. If a map has
+Every maze must contain at least one spawn and at least one goal. If a map has
 multiple `S` cells, `RayMazeEnv.reset` samples uniformly from them using the
 reset key.
 
@@ -32,14 +32,14 @@ y = row + 0.5
 ```
 
 The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor.
-`#` and digit wall symbols remain static walls.
+`#` and colored wall symbols remain static walls.
 
 ## Symbol Table
 
 | Symbol | Meaning |
 | --- | --- |
 | `#` | default static wall |
-| `1`-`9` | colored static wall |
+| `1`-`9`, generated symbols | colored static wall |
 | `.` | floor |
 | space | floor |
 | `S` | spawn candidate |
@@ -104,6 +104,19 @@ ViZDoom's bundled `my_way_home.cfg` sets `episode_timeout = 2100`. Jaxenstein mi
 ```bash
 uv run python play.py --maze my-way-home
 uv run python play.py --maze my-way-home-colorless
+```
+
+## DeepMind Lab Nav Mazes
+
+`jes.dmlab.dmlab_map_to_ascii` converts grid-aligned DMLab `nav_maze` `.map`
+files into ASCII maps. `info_player_start` entities become `S`, explicit
+`goal` entities become `G`, and decal image walls become stable colored wall
+symbols instead of textured patches. Random-goal maps use `apple_reward`
+entities as goals.
+
+```bash
+uv run python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
+uv run python play.py --maze dmlab-nav-maze-static-01
 ```
 
 ## Custom Map Example

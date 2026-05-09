@@ -97,11 +97,154 @@ MAZE_MY_WAY_HOME_COLORLESS = """
 ################################
 """
 
+# DeepMind Lab nav_maze maps converted from .map files. Decal textures are
+# represented as stable colored wall symbols instead of textured patches.
+DMLAB_NAV_MAZE_STATIC_01 = """
+#####+###############
+#S.S;....G#S.S.S.S.S#
+#.#.###.#.#.#4#####.#
+#S#S.S!.8.xS#S.S.ShS#
+#.###.#.#j#[###.#.#.#
+#S.S#...#S.S.S4S#S_S#
+#.#.#t###.#.#.#.#.#.#
+#S/S#S.S#S.S.S.S#S.S#
+#.#.#.#.#4#.#w#.#N###
+#S#S.S#S.S.S.S.S.S.S#
+#####################
+"""
+
+DMLAB_NAV_MAZE_STATIC_02 = """
+#########<#####################
+#SHS#S#S#S#S#S#S#S#S#S#S#S#S#S#
+#######################'#######
+#S#S;S#S#S#S#S#S#SeS#S#S#S#S#S#
+#########################c#t###
+zS#S#SMS#S#S#S#S#S#S#SQS#S#####
+#############{#####g###########
+#S#S#S#S#S#S#S#S#SoS#S#S#S####j
+###########################)###
+#S#S#S#S#S#S#S#S#SXS#S#S#S#S#G#
+###############################
+#S#S#S#S#S#S#S#SCS[S#S#S#Sx###2
+#####################P#########
+4S#S#S#S#S#S#S#S#S#S#S#SfS#S#S#
+###w#L###,#####E###########+###
+#S#S#S#S#S#S#S=S0S#S#S#S#S#S7S#
+###########h#######T###########
+#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#
+#############################9#
+"""
+
+DMLAB_NAV_MAZE_STATIC_03 = """
+#######A#l###########`###################
+#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#
+#####$#######################'#9#########
+>S#S#S#S#S#S#S#S#S#S#S#S|S#S#S#S#S{S#S#S#
+###############################:#########
+#SNS#S#S#S#S#SdS#S#S#S#S#S#S#S#S#S#S#SPS#
+#############################[###########
+#S#S#S#S#S#S}S#S#S#S#S#S#S#ScS#S7S#S#S#S#
+###########U#######################1#####
+#SoS#S#S#S#S#S!S#S#S#S#S#S#S#S#S#S#S#S#S#
+#############E###################w#######
+#SaS#S+S#S#S#S#S#SWS#S#S#S#S#S#S#S#S#S#S#
+#########################################
+#S#S,S#S#S#S#S#SZS#S#S#S#S#S#S#S)S#S#S#S?
+###################Q###############^#####
+#S#SmS#S#S#S#S2S#S#S#S#S#S#S#S3S#S#S#S#S#
+#####I###########f###z#####&#####/#q#F###
+#S#S#S]S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#STS#
+###############4#########################
+#S#S#S#S#S#S#S#S#S#S#S#S#S#S#StS#S#S#S#S#
+#########################################
+#S#S#SXS#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#
+#########################################
+%S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S#S*S#S#
+#######e#########(#C#############~#######
+#S#S#S#SsS#########G#########S#S=S#S#SnS#
+#############O###;#################g#####
+"""
+
+DMLAB_NAV_MAZE_RANDOM_GOAL_01 = """
+###>###############k#
+#S.G.G.G.G.G.G.G.G.G#
+###d#.#.#####_###`#.#
+QG.G.GpG.GIGjG.G#G#G#
+#.#####.#.#.#.#.#.#.#
+#G6G.G#G.G4G.G.G#G#G#
+#.#.#.#.#.#.#.#.#.#.#
+#G#GsGVG.G4G.G.G#G#G#
+#.#.#.#4#4#.#{#8#.#.#
+#G.G#G.G#G.G.G.G.G.G#
+#####################
+"""
+
+DMLAB_NAV_MAZE_RANDOM_GOAL_02 = """
+#######q#####U#5###############
+#S#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+#####@###8###################?#
+#G#GFG#G#G#G#G#G#G#G#G#GMG#G#G#
+#####C#############&###/#s#####
+#G#G#G#G#G#G#G#G#G#G#G#G#G#GOG#
+###############################
+#G#G#G#G#G#G#G#G#G#G#G#G#G#G*G_
+###############################
+#G#G#G#G#G#G#G#G#G#GWGEG#G#G3G#
+###h###|#######################
+#G#G#G#G#G#G#G#G#G#GQGeG#G#G#G#
+#L#############################
+#G#G#G#G(G#G#G#G#G#GkG#G#G#G#G#
+###########################%###
+#G#G#G#G#G#G#G#G#G#G#GZG2G#G#G#
+#################V#############
+#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+###:#####################X###`#
+"""
+
+DMLAB_NAV_MAZE_RANDOM_GOAL_03 = """
+###############0#####d#####,#############
+cS#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+#########q###################`###########
+#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+###########/#######5#####################
+#G#G*G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+#########################################
+#G#GkG8G#G#G#G#G#G#G#G#G#G#G#G#G#G#GWG#G#
+#####-###########################}#######
+#G#G#GUG#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+#########################################
+#G#G:GeG#G#G#G#G#G#G#G#G#G#G#G#GZG#G#G#G#
+#######?#7#####n###################N#####
+#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+#####J###O#%#############################
+#G#G#G#G#G#G#G#G#GvG#G#GmG#G#G#G#G#G#G&G#
+#####################E###################
+IG#G#G#G#G#G#G#G#G#G#G9G#G#G#G#G#G#G#G#G#
+###<#####################################
+#GCG#GiG#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+#########################################
+#G#G#G#G#G#G#G#G#G#GAG>GHG#G#G#G#G#G#GlG#
+###x#####################################
+#G[G#G6G#G#G#G#G#G|G#G#G{G#G#G#G#G#G#GaG#
+#########@###############)###############
+#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#G#
+###############^###P#################z#T#
+"""
+
+DMLAB_NAV_MAZE_01 = DMLAB_NAV_MAZE_STATIC_01
+
+
 MAPS_BY_NAME = {
     "simple": MAZE_SIMPLE,
     "key-door": MAZE_KEY_DOOR,
     "my-way-home": MAZE_MY_WAY_HOME,
     "my-way-home-colorless": MAZE_MY_WAY_HOME_COLORLESS,
+    "dmlab-nav-maze-static-01": DMLAB_NAV_MAZE_STATIC_01,
+    "dmlab-nav-maze-static-02": DMLAB_NAV_MAZE_STATIC_02,
+    "dmlab-nav-maze-static-03": DMLAB_NAV_MAZE_STATIC_03,
+    "dmlab-nav-maze-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
+    "dmlab-nav-maze-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
+    "dmlab-nav-maze-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
 }
 
 MAP_EPISODE_HORIZONS_BY_NAME = {

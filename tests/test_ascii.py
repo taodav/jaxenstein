@@ -82,6 +82,19 @@ def test_parse_ascii_maze_pickup_objects():
     )
 
 
+def test_parse_ascii_maze_multiple_goals():
+    maze = parse_ascii_maze(
+        """
+        ######
+        #SGG.#
+        ######
+        """
+    )
+
+    assert jnp.allclose(maze.goal_xy, jnp.asarray([2.5, 1.5]))
+    assert jnp.array_equal(maze.object_type, jnp.asarray([OBJECT_GOAL, OBJECT_GOAL]))
+
+
 def test_parse_ascii_maze_colored_keys_and_doors():
     maze = parse_ascii_maze(
         """

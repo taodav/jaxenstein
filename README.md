@@ -6,7 +6,7 @@ The current environment supports:
 
 - ASCII-authored mazes
 - first-person RGB observations
-- fixed-step raycasting
+- DDA grid raycasting
 - billboard object sprites
 - colored keys and colored doors
 - sparse goal reward
@@ -61,6 +61,12 @@ Play the ViZDoom My Way Home maze conversion:
 
 ```bash
 uv run python play.py --maze my-way-home
+```
+
+Play a DeepMind Lab nav maze conversion:
+
+```bash
+uv run python play.py --maze dmlab-nav-maze-static-01
 ```
 
 All maps render with a higher wall scale and checker floor by default. This map also uses colored wall symbols and the original ViZDoom `episode_timeout` of 2100 steps. The same topology is available without wall colors:

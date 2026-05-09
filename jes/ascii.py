@@ -103,16 +103,15 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
                 object_type.append(kind)
                 object_color.append(color)
                 if kind == OBJECT_GOAL:
-                    if goal_xy is not None:
-                        raise ValueError("maze must contain exactly one goal")
-                    goal_xy = xy
+                    if goal_xy is None:
+                        goal_xy = xy
             elif char in DOOR_SYMBOLS:
                 door_grid[row_idx, col_idx] = DOOR_SYMBOLS[char]
 
     if not spawn_xy_options:
         raise ValueError("maze must contain at least one spawn")
     if goal_xy is None:
-        raise ValueError("maze must contain exactly one goal")
+        raise ValueError("maze must contain at least one goal")
 
     spawn_xy_array = np.stack(spawn_xy_options)
     return Maze(
