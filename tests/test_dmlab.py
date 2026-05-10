@@ -1,7 +1,9 @@
+import jax
 import jax.numpy as jnp
 
 from jes.ascii import parse_ascii_maze
 from jes.dmlab import dmlab_decal_symbol, dmlab_map_to_ascii
+from jes.env import RayMazeEnv
 from jes.maps import (
     DMLAB_NAV_MAZE_RANDOM_GOAL_01,
     DMLAB_NAV_MAZE_RANDOM_GOAL_02,
@@ -129,3 +131,14 @@ def test_dmlab_random_goal_01_uses_apple_rewards_as_goals():
 
     assert int(maze.spawn_count) == 1
     assert int(jnp.sum(maze.object_type == OBJECT_GOAL)) == 49
+
+
+def test_dmlab_random_goal_env_activates_one_goal_per_episode():
+    env = RayMazeEnv.from_ascii([DMLAB_NAV_MAZE_RANDOM_GOAL_01])
+
+    _, state = env.reset(jax.random.key(0), 0)
+    active_goals = state.object_active & (
+        env.maze_batch.object_type[0] == OBJECT_GOAL
+    )
+
+    assert int(jnp.sum(active_goals)) == 1

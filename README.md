@@ -21,18 +21,6 @@ Use `uv` from the repository root:
 uv sync --extra dev
 ```
 
-For local CPU-only JAX runs, set:
-
-```bash
-export JAX_PLATFORMS=cpu
-```
-
-You can also prefix individual commands:
-
-```bash
-env JAX_PLATFORMS=cpu uv run pytest
-```
-
 ## Play
 
 ```bash
@@ -68,6 +56,11 @@ Play a DeepMind Lab nav maze conversion:
 ```bash
 uv run python play.py --maze dmlab-nav-maze-static-01
 ```
+
+The DMLab source levels set `episodeLengthSeconds` to 60, 150, and 300 for
+maze indices 01, 02, and 03. Using a Doom-like 30 Hz step budget, Jaxenstein
+uses horizons of 1800, 4500, and 9000 for both static and random-goal
+variants.
 
 All maps render with a higher wall scale and checker floor by default. This map also uses colored wall symbols and the original ViZDoom `episode_timeout` of 2100 steps. The same topology is available without wall colors:
 
@@ -132,7 +125,7 @@ MAZE_KEY_DOOR = """
 """
 ```
 
-`S` marks a spawn candidate, `G` is the goal, lowercase symbols are colored keys, uppercase colored symbols are doors, and digit symbols are colored walls. Multiple `S` cells are sampled uniformly on reset. See [jes/MAZES.md](jes/MAZES.md) for the full symbol table and examples for creating custom maps.
+`S` marks a spawn candidate, `G` marks a goal candidate, lowercase symbols are colored keys, uppercase colored symbols are doors, and digit symbols are colored walls. Multiple `S` and `G` cells are sampled uniformly on reset. See [jes/MAZES.md](jes/MAZES.md) for the full symbol table and examples for creating custom maps.
 
 ## Tests
 

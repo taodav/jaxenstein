@@ -31,6 +31,21 @@ MAZE_T = """
 
 VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT = 2100
 
+# Convert DMLab seconds to a Doom-like 30 Hz step budget.
+DMLAB_NAV_MAZE_HORIZON_FPS = 30
+DMLAB_NAV_MAZE_01_EPISODE_LENGTH_SECONDS = 60
+DMLAB_NAV_MAZE_02_EPISODE_LENGTH_SECONDS = 150
+DMLAB_NAV_MAZE_03_EPISODE_LENGTH_SECONDS = 300
+DMLAB_NAV_MAZE_01_MAX_STEPS = (
+    DMLAB_NAV_MAZE_01_EPISODE_LENGTH_SECONDS * DMLAB_NAV_MAZE_HORIZON_FPS
+)
+DMLAB_NAV_MAZE_02_MAX_STEPS = (
+    DMLAB_NAV_MAZE_02_EPISODE_LENGTH_SECONDS * DMLAB_NAV_MAZE_HORIZON_FPS
+)
+DMLAB_NAV_MAZE_03_MAX_STEPS = (
+    DMLAB_NAV_MAZE_03_EPISODE_LENGTH_SECONDS * DMLAB_NAV_MAZE_HORIZON_FPS
+)
+
 # ViZDoom's My Way Home footprint, rasterized from the bundled UDMF WAD at
 # 32 Doom units per cell. The 17 original spawn map points are represented as
 # multiple S cells and are sampled uniformly by RayMazeEnv.reset. Digits are
@@ -250,6 +265,12 @@ MAPS_BY_NAME = {
 MAP_EPISODE_HORIZONS_BY_NAME = {
     "my-way-home": VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
     "my-way-home-colorless": VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
+    "dmlab-nav-maze-static-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
+    "dmlab-nav-maze-static-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
+    "dmlab-nav-maze-static-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
+    "dmlab-nav-maze-random-goal-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
+    "dmlab-nav-maze-random-goal-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
+    "dmlab-nav-maze-random-goal-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
 }
 
 MAP_RENDER_KWARGS_BY_NAME = {

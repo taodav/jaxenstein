@@ -9,6 +9,16 @@ from jes.env import (
     RayMazeEnv,
 )
 from jes.maps import (
+    DMLAB_NAV_MAZE_01_EPISODE_LENGTH_SECONDS,
+    DMLAB_NAV_MAZE_01_MAX_STEPS,
+    DMLAB_NAV_MAZE_02_EPISODE_LENGTH_SECONDS,
+    DMLAB_NAV_MAZE_02_MAX_STEPS,
+    DMLAB_NAV_MAZE_03_EPISODE_LENGTH_SECONDS,
+    DMLAB_NAV_MAZE_03_MAX_STEPS,
+    DMLAB_NAV_MAZE_HORIZON_FPS,
+    DMLAB_NAV_MAZE_STATIC_01,
+    DMLAB_NAV_MAZE_STATIC_02,
+    DMLAB_NAV_MAZE_STATIC_03,
     MAP_EPISODE_HORIZONS_BY_NAME,
     MAZE_MY_WAY_HOME,
     MAZE_SIMPLE,
@@ -70,6 +80,66 @@ def test_reset_samples_multiple_spawns_from_key():
     assert int(unique_spawns.shape[0]) == 2
 
 
+def test_reset_samples_one_active_goal_from_multiple_candidates():
+    env = RayMazeEnv.from_ascii(
+        [
+            """
+            #########
+            #S.G.G.#
+            #########
+            """
+        ]
+    )
+    keys = jax.random.split(jax.random.key(0), 64)
+    maze_ids = jnp.zeros((64,), dtype=jnp.int32)
+
+    _, states = jax.vmap(env.reset)(keys, maze_ids)
+    object_type = env.maze_batch.object_type[0]
+    active_goals = states.object_active & (object_type[None, :] == OBJECT_GOAL)
+    valid_goals = jnp.asarray([[3.5, 1.5], [5.5, 1.5]], dtype=jnp.float32)
+    is_valid_goal = jnp.any(
+        jnp.all(states.goal_xy[:, None, :] == valid_goals[None, :, :], axis=-1),
+        axis=1,
+    )
+
+    assert bool(jnp.all(jnp.sum(active_goals, axis=1) == 1))
+    assert bool(jnp.all(is_valid_goal))
+    assert int(jnp.unique(states.goal_xy, axis=0).shape[0]) == 2
+
+
+def test_inactive_goal_candidate_does_not_end_episode():
+    env = RayMazeEnv.from_ascii(
+        [
+            """
+            #########
+            #S.G.G.#
+            #########
+            """
+        ]
+    )
+    _, state = env.reset(jax.random.key(0), 0)
+    object_type = env.maze_batch.object_type[0]
+    inactive_goal = (object_type == OBJECT_GOAL) & ~state.object_active
+    inactive_goal_xy = jnp.sum(
+        jnp.where(
+            inactive_goal[:, None],
+            env.maze_batch.object_xy[0],
+            jnp.asarray(0.0, dtype=jnp.float32),
+        ),
+        axis=0,
+    )
+
+    _, next_state, reward, done, info = env.step(
+        state.replace(pos=inactive_goal_xy),
+        ACTION_TURN_LEFT,
+    )
+
+    assert float(reward) == 0.0
+    assert not bool(done)
+    assert not bool(next_state.done)
+    assert not bool(info["reached_goal"])
+
+
 def test_episode_horizons_can_vary_by_maze():
     env = RayMazeEnv.from_ascii(
         [
@@ -110,6 +180,33 @@ def test_my_way_home_horizon_matches_vizdoom_timeout():
 
     assert VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT == 2100
     assert int(env.episode_horizons[0]) == VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT
+
+
+def test_dmlab_nav_maze_horizons_match_source_frame_steps():
+    env = RayMazeEnv.from_ascii(
+        [
+            DMLAB_NAV_MAZE_STATIC_01,
+            DMLAB_NAV_MAZE_STATIC_02,
+            DMLAB_NAV_MAZE_STATIC_03,
+        ],
+        episode_horizons=[
+            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-static-01"],
+            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-static-02"],
+            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-static-03"],
+        ],
+    )
+
+    assert DMLAB_NAV_MAZE_01_EPISODE_LENGTH_SECONDS == 60
+    assert DMLAB_NAV_MAZE_02_EPISODE_LENGTH_SECONDS == 150
+    assert DMLAB_NAV_MAZE_03_EPISODE_LENGTH_SECONDS == 300
+    assert DMLAB_NAV_MAZE_HORIZON_FPS == 30
+    assert DMLAB_NAV_MAZE_01_MAX_STEPS == 1800
+    assert DMLAB_NAV_MAZE_02_MAX_STEPS == 4500
+    assert DMLAB_NAV_MAZE_03_MAX_STEPS == 9000
+    assert env.episode_horizons.tolist() == [1800, 4500, 9000]
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-random-goal-01"] == 1800
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-random-goal-02"] == 4500
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-random-goal-03"] == 9000
 
 
 def test_forward_collision_noops_at_wall():

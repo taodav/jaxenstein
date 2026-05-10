@@ -19,8 +19,8 @@ env = RayMazeEnv.from_ascii([MY_MAZE])
 ```
 
 Every maze must contain at least one spawn and at least one goal. If a map has
-multiple `S` cells, `RayMazeEnv.reset` samples uniformly from them using the
-reset key.
+multiple `S` or `G` cells, `RayMazeEnv.reset` samples one spawn and one active
+goal uniformly from those candidates using the reset key.
 
 ## Coordinates
 
@@ -43,7 +43,7 @@ The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor.
 | `.` | floor |
 | space | floor |
 | `S` | spawn candidate |
-| `G` | yellow goal object |
+| `G` | yellow goal candidate |
 | `K` | red key |
 | `r` | red key |
 | `b` | blue key |
@@ -112,7 +112,12 @@ uv run python play.py --maze my-way-home-colorless
 files into ASCII maps. `info_player_start` entities become `S`, explicit
 `goal` entities become `G`, and decal image walls become stable colored wall
 symbols instead of textured patches. Random-goal maps use `apple_reward`
-entities as goals.
+entities as `G` candidates, with one active goal sampled at reset.
+
+The DMLab Lua levels set `episodeLengthSeconds` to 60, 150, and 300 for
+indices 01, 02, and 03. Using a Doom-like 30 Hz step budget, Jaxenstein maps
+those to horizons of 1800, 4500, and 9000 for the static and random-goal
+variants.
 
 ```bash
 uv run python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map

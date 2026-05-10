@@ -36,6 +36,7 @@ class State:
     t: jax.Array
     done: jax.Array
     maze_id: jax.Array
+    goal_xy: jax.Array
     object_active: jax.Array
     carried_keys: jax.Array
     door_open: jax.Array
@@ -110,12 +111,35 @@ class RayMazeEnv:
 
     def reset(self, key: jax.Array, maze_id: jax.Array | int = 0) -> tuple[jax.Array, State]:
         maze_id = jnp.asarray(maze_id, dtype=jnp.int32)
+        spawn_key, goal_key = jax.random.split(key)
         spawn_idx = jax.random.randint(
-            key,
+            spawn_key,
             shape=(),
             minval=0,
             maxval=self.maze_batch.spawn_count[maze_id],
             dtype=jnp.int32,
+        )
+        object_type = self.maze_batch.object_type[maze_id]
+        goal_mask = object_type == OBJECT_GOAL
+        goal_order = jnp.cumsum(goal_mask.astype(jnp.int32)) - 1
+        goal_idx = jax.random.randint(
+            goal_key,
+            shape=(),
+            minval=0,
+            maxval=jnp.sum(goal_mask.astype(jnp.int32)),
+            dtype=jnp.int32,
+        )
+        selected_goal = goal_mask & (goal_order == goal_idx)
+        object_active = (object_type != OBJECT_NONE) & (
+            (object_type != OBJECT_GOAL) | selected_goal
+        )
+        goal_xy = jnp.sum(
+            jnp.where(
+                selected_goal[:, None],
+                self.maze_batch.object_xy[maze_id],
+                jnp.asarray(0.0, dtype=jnp.float32),
+            ),
+            axis=0,
         )
         state = State(
             pos=self.maze_batch.spawn_xy_options[maze_id, spawn_idx],
@@ -123,7 +147,8 @@ class RayMazeEnv:
             t=jnp.asarray(0, dtype=jnp.int32),
             done=jnp.asarray(False),
             maze_id=maze_id,
-            object_active=self.maze_batch.object_type[maze_id] != OBJECT_NONE,
+            goal_xy=goal_xy,
+            object_active=object_active,
             carried_keys=jnp.zeros((NUM_KEY_COLORS,), dtype=jnp.bool_),
             door_open=jnp.zeros_like(self.maze_batch.door_grids[maze_id], dtype=jnp.bool_),
         )
@@ -197,8 +222,7 @@ class RayMazeEnv:
             self.params.interact_distance,
         )
 
-        goal_xy = self.maze_batch.goal_xy[state.maze_id]
-        distance_to_goal = jnp.linalg.norm(pos - goal_xy)
+        distance_to_goal = jnp.linalg.norm(pos - state.goal_xy)
         t = state.t + jnp.where(active, 1, 0).astype(jnp.int32)
         episode_horizon = self.episode_horizons[state.maze_id]
         done = state.done | reached_goal | (t >= episode_horizon)
@@ -210,6 +234,7 @@ class RayMazeEnv:
             t=t,
             done=done,
             maze_id=state.maze_id,
+            goal_xy=state.goal_xy,
             object_active=object_active,
             carried_keys=carried_keys,
             door_open=door_open,
