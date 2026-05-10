@@ -39,7 +39,7 @@ def dmlab_map_to_ascii(map_text: str, *, cell_size: float = DMLAB_CELL_SIZE) -> 
                 continue
             for pos in _wall_positions(bounds, cell_size):
                 wall_symbols[pos] = dmlab_decal_symbol(texture.group(0))
-        elif "lg_style_01_floor_orange" in child:
+        elif "_floor_" in child:
             bounds = _brush_bounds_from_planes(child)
             if bounds is None:
                 continue

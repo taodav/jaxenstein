@@ -11,7 +11,7 @@ from jes.maps import (
     DMLAB_NAV_MAZE_STATIC_03,
     MAPS_BY_NAME,
 )
-from jes.objects import COLORED_WALL_SYMBOLS, OBJECT_GOAL
+from jes.objects import COLORED_WALL_SYMBOLS, OBJECT_GOAL, WALL_SYMBOLS
 
 
 SAMPLE_DMLAB_MAP = """
@@ -53,6 +53,28 @@ SAMPLE_DMLAB_MAP = """
 """
 
 
+def _isolated_positions(ascii_map: str, symbol: str) -> list[tuple[int, int]]:
+    rows = ascii_map.strip().splitlines()
+    isolated = []
+    for row_idx, row in enumerate(rows):
+        for col_idx, char in enumerate(row):
+            if char != symbol:
+                continue
+            open_neighbors = 0
+            for drow, dcol in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                next_row = row_idx + drow
+                next_col = col_idx + dcol
+                if not (0 <= next_row < len(rows)):
+                    continue
+                if not (0 <= next_col < len(rows[next_row])):
+                    continue
+                if rows[next_row][next_col] not in WALL_SYMBOLS:
+                    open_neighbors += 1
+            if open_neighbors == 0:
+                isolated.append((row_idx, col_idx))
+    return isolated
+
+
 def test_dmlab_decal_symbol_uses_stable_global_texture_index():
     assert (
         dmlab_decal_symbol("decal/lab_games/dec_img_style01_001")
@@ -91,6 +113,7 @@ def test_generated_dmlab_nav_maze_maps_parse_and_are_registered():
         assert int(maze.spawn_count) >= 1
         assert bool(jnp.any(maze.object_type == OBJECT_GOAL))
         assert int(jnp.unique(maze.color_grid[maze.wall_grid]).shape[0]) > 1
+        assert _isolated_positions(ascii_map, "S") == []
 
 
 def test_dmlab_static_01_has_source_goal_and_multiple_starts():
