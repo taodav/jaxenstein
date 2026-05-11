@@ -107,6 +107,25 @@ def test_floor_pattern_and_wall_height_scale_affect_render():
     )
 
 
+def test_custom_floor_checker_colors_affect_render():
+    maze = parse_ascii_maze(MAZE_SIMPLE)
+    dark = jnp.asarray([9, 19, 29], dtype=jnp.float32)
+    light = jnp.asarray([79, 89, 99], dtype=jnp.float32)
+
+    rgb = render_first_person(
+        maze.spawn_xy,
+        maze.spawn_theta,
+        maze.wall_grid,
+        maze.color_grid,
+        floor_checker_dark_rgb=dark,
+        floor_checker_light_rgb=light,
+    )
+    floor_pixels = rgb[40:].reshape((-1, 3))
+
+    assert bool(jnp.any(jnp.all(floor_pixels == dark.astype(jnp.uint8), axis=1)))
+    assert bool(jnp.any(jnp.all(floor_pixels == light.astype(jnp.uint8), axis=1)))
+
+
 def test_key_sprite_is_sparse_key_shape():
     maze = parse_ascii_maze(
         """

@@ -11,6 +11,7 @@ from jes.maps import (
     DMLAB_NAV_MAZE_STATIC_01,
     DMLAB_NAV_MAZE_STATIC_02,
     DMLAB_NAV_MAZE_STATIC_03,
+    MAP_RENDER_KWARGS_BY_NAME,
     MAPS_BY_NAME,
 )
 from jes.objects import COLORED_WALL_SYMBOLS, OBJECT_GOAL, WALL_SYMBOLS
@@ -116,6 +117,23 @@ def test_generated_dmlab_nav_maze_maps_parse_and_are_registered():
         assert bool(jnp.any(maze.object_type == OBJECT_GOAL))
         assert int(jnp.unique(maze.color_grid[maze.wall_grid]).shape[0]) > 1
         assert _isolated_positions(ascii_map, "S") == []
+
+
+def test_dmlab_render_kwargs_match_maze_color_schemes():
+    floor_by_index = {
+        "01": [182, 154, 46],
+        "02": [68, 132, 188],
+        "03": [32, 122, 86],
+    }
+
+    for index, floor_rgb in floor_by_index.items():
+        static = MAP_RENDER_KWARGS_BY_NAME[f"dmlab-static-{index}"]
+        random_goal = MAP_RENDER_KWARGS_BY_NAME[f"dmlab-random-goal-{index}"]
+
+        assert static == random_goal
+        assert static["floor_rgb"] == floor_rgb
+        assert static["floor_checker_dark_rgb"] != static["floor_checker_light_rgb"]
+        assert static["color_palette"][1] != [150, 150, 150]
 
 
 def test_dmlab_static_01_has_source_goal_and_multiple_starts():

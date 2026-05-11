@@ -61,6 +61,75 @@ DMLAB_NAV_MAZE_03_MAX_STEPS = (
     DMLAB_NAV_MAZE_03_EPISODE_LENGTH_SECONDS * DMLAB_NAV_MAZE_HORIZON_FPS
 )
 
+
+def _dmlab_wall_palette(
+    primary_wall: list[int],
+    accents: list[list[int]],
+    *,
+    size: int = 96,
+) -> list[list[int]]:
+    palette = [[150, 150, 150] for _ in range(size)]
+    palette[1] = primary_wall
+    for color_id in range(7, size):
+        palette[color_id] = accents[(color_id - 7) % len(accents)]
+    return palette
+
+
+DMLAB_RENDER_KWARGS_BY_INDEX = {
+    "01": {
+        "color_palette": _dmlab_wall_palette(
+            [68, 112, 76],
+            [
+                [62, 108, 72],
+                [82, 134, 86],
+                [102, 150, 94],
+                [118, 92, 42],
+                [156, 48, 42],
+                [96, 52, 38],
+                [204, 184, 70],
+            ],
+        ),
+        "floor_rgb": [182, 154, 46],
+        "floor_checker_dark_rgb": [146, 124, 38],
+        "floor_checker_light_rgb": [214, 184, 62],
+    },
+    "02": {
+        "color_palette": _dmlab_wall_palette(
+            [132, 116, 36],
+            [
+                [126, 110, 34],
+                [154, 132, 42],
+                [184, 154, 48],
+                [88, 106, 92],
+                [54, 116, 178],
+                [42, 84, 132],
+                [206, 62, 72],
+            ],
+        ),
+        "floor_rgb": [68, 132, 188],
+        "floor_checker_dark_rgb": [52, 102, 150],
+        "floor_checker_light_rgb": [92, 164, 216],
+    },
+    "03": {
+        "color_palette": _dmlab_wall_palette(
+            [166, 88, 24],
+            [
+                [170, 86, 22],
+                [202, 112, 30],
+                [126, 72, 26],
+                [40, 116, 82],
+                [28, 92, 66],
+                [126, 148, 152],
+                [172, 188, 190],
+                [138, 38, 34],
+            ],
+        ),
+        "floor_rgb": [32, 122, 86],
+        "floor_checker_dark_rgb": [24, 92, 66],
+        "floor_checker_light_rgb": [50, 154, 110],
+    },
+}
+
 # ViZDoom's My Way Home footprint, rasterized from the bundled UDMF WAD at
 # 32 Doom units per cell. The 17 original spawn map points are represented as
 # multiple S cells and are sampled uniformly by RayMazeEnv.reset. Digits are
@@ -291,6 +360,12 @@ MAP_EPISODE_HORIZONS_BY_NAME = {
 }
 
 MAP_RENDER_KWARGS_BY_NAME = {
+    "dmlab-static-01": DMLAB_RENDER_KWARGS_BY_INDEX["01"],
+    "dmlab-random-goal-01": DMLAB_RENDER_KWARGS_BY_INDEX["01"],
+    "dmlab-static-02": DMLAB_RENDER_KWARGS_BY_INDEX["02"],
+    "dmlab-random-goal-02": DMLAB_RENDER_KWARGS_BY_INDEX["02"],
+    "dmlab-static-03": DMLAB_RENDER_KWARGS_BY_INDEX["03"],
+    "dmlab-random-goal-03": DMLAB_RENDER_KWARGS_BY_INDEX["03"],
 }
 
 DEFAULT_MAZES = [MAZE_SIMPLE]

@@ -19,7 +19,13 @@ from jes.objects import (
     door_wall_color_id,
     object_pickup_radius,
 )
-from jes.render import render_first_person
+from jes.render import (
+    DEFAULT_WALL_PALETTE,
+    FLOOR_CHECKER_DARK_RGB,
+    FLOOR_CHECKER_LIGHT_RGB,
+    FLOOR_RGB,
+    render_first_person,
+)
 
 
 ACTION_TURN_LEFT = 0
@@ -76,6 +82,10 @@ class RayMazeEnv:
         fov: float = jnp.pi / 3.0,
         max_depth: float = 16.0,
         num_depth_samples: int = 128,
+        color_palette: Sequence[Sequence[float]] | jax.Array = DEFAULT_WALL_PALETTE,
+        floor_rgb: Sequence[float] | jax.Array = FLOOR_RGB,
+        floor_checker_dark_rgb: Sequence[float] | jax.Array = FLOOR_CHECKER_DARK_RGB,
+        floor_checker_light_rgb: Sequence[float] | jax.Array = FLOOR_CHECKER_LIGHT_RGB,
         wall_height_scale: float = 1.35,
         floor_pattern: bool = True,
     ):
@@ -86,6 +96,14 @@ class RayMazeEnv:
         self.fov = fov
         self.max_depth = max_depth
         self.num_depth_samples = num_depth_samples
+        self.color_palette = jnp.asarray(color_palette, dtype=jnp.float32)
+        self.floor_rgb = jnp.asarray(floor_rgb, dtype=jnp.float32)
+        self.floor_checker_dark_rgb = jnp.asarray(
+            floor_checker_dark_rgb, dtype=jnp.float32
+        )
+        self.floor_checker_light_rgb = jnp.asarray(
+            floor_checker_light_rgb, dtype=jnp.float32
+        )
         self.wall_height_scale = wall_height_scale
         self.floor_pattern = floor_pattern
         self.episode_horizons = _episode_horizon_array(
@@ -286,6 +304,10 @@ class RayMazeEnv:
             fov=self.fov,
             max_depth=self.max_depth,
             num_depth_samples=self.num_depth_samples,
+            color_palette=self.color_palette,
+            floor_rgb=self.floor_rgb,
+            floor_checker_dark_rgb=self.floor_checker_dark_rgb,
+            floor_checker_light_rgb=self.floor_checker_light_rgb,
             object_xy=self.maze_batch.object_xy[state.maze_id],
             object_type=self.maze_batch.object_type[state.maze_id],
             object_color=self.maze_batch.object_color[state.maze_id],

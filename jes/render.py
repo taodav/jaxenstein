@@ -244,10 +244,18 @@ def render_first_person(
     object_active: jax.Array | None = None,
     goal_xy: jax.Array | None = None,
     color_palette: jax.Array = DEFAULT_WALL_PALETTE,
+    floor_rgb: jax.Array = FLOOR_RGB,
+    floor_checker_dark_rgb: jax.Array = FLOOR_CHECKER_DARK_RGB,
+    floor_checker_light_rgb: jax.Array = FLOOR_CHECKER_LIGHT_RGB,
     wall_height_scale: float = 1.35,
     floor_pattern: bool = True,
 ) -> jax.Array:
     """Render a Wolfenstein-style RGB observation as uint8 [H, W, 3]."""
+
+    color_palette = jnp.asarray(color_palette, dtype=jnp.float32)
+    floor_rgb = jnp.asarray(floor_rgb, dtype=jnp.float32)
+    floor_checker_dark_rgb = jnp.asarray(floor_checker_dark_rgb, dtype=jnp.float32)
+    floor_checker_light_rgb = jnp.asarray(floor_checker_light_rgb, dtype=jnp.float32)
 
     distances, wall_ids = raycast_dda(
         pos,
@@ -281,7 +289,7 @@ def render_first_person(
     rgb = jnp.where(
         ceiling_mask[..., None],
         CEILING_RGB,
-        jnp.where(wall_mask[..., None], wall_rgb[None, :, :], FLOOR_RGB),
+        jnp.where(wall_mask[..., None], wall_rgb[None, :, :], floor_rgb),
     )
     rgb = jax.lax.cond(
         jnp.asarray(floor_pattern),
@@ -294,6 +302,8 @@ def render_first_person(
             ceiling_mask,
             img_h=img_h,
             wall_height_scale=wall_height_scale,
+            floor_checker_dark_rgb=floor_checker_dark_rgb,
+            floor_checker_light_rgb=floor_checker_light_rgb,
         ),
         lambda image: image,
         rgb,
@@ -343,6 +353,8 @@ def _apply_floor_checker_pattern(
     *,
     img_h: int,
     wall_height_scale: float,
+    floor_checker_dark_rgb: jax.Array,
+    floor_checker_light_rgb: jax.Array,
     checker_size: float = 1.0,
 ) -> jax.Array:
     rows = jnp.arange(img_h, dtype=jnp.float32)[:, None]
@@ -360,8 +372,8 @@ def _apply_floor_checker_pattern(
     )
     floor_rgb = jnp.where(
         checker[..., None] < 1.0,
-        FLOOR_CHECKER_DARK_RGB,
-        FLOOR_CHECKER_LIGHT_RGB,
+        floor_checker_dark_rgb,
+        floor_checker_light_rgb,
     )
     return jnp.where(floor_mask[..., None], floor_rgb, rgb)
 
