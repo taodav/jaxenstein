@@ -1,8 +1,10 @@
 import jax.numpy as jnp
 
 from jes.ascii import parse_ascii_maze, stack_mazes
-from jes.maps import MAZE_MY_WAY_HOME, MAZE_MY_WAY_HOME_COLORLESS
+from jes.maps import MAZE_KEY_CORRIDOR, MAZE_MY_WAY_HOME, MAZE_MY_WAY_HOME_COLORLESS
 from jes.objects import (
+    DOOR_UNLOCKED,
+    DOOR_UNLOCKED_YELLOW,
     KEY_COLOR_BLUE,
     KEY_COLOR_NONE,
     KEY_COLOR_RED,
@@ -13,7 +15,11 @@ from jes.objects import (
 )
 
 
-def _reachable_cells(maze: list[str], start: tuple[int, int]) -> set[tuple[int, int]]:
+def _reachable_cells(
+    maze: list[str], start: tuple[int, int], passable: set[str] | None = None
+) -> set[tuple[int, int]]:
+    if passable is None:
+        passable = {".", "S", "G"}
     frontier = [start]
     seen = {start}
     while frontier:
@@ -21,7 +27,7 @@ def _reachable_cells(maze: list[str], start: tuple[int, int]) -> set[tuple[int, 
         for drow, dcol in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             next_cell = (row + drow, col + dcol)
             next_row, next_col = next_cell
-            if next_cell in seen or maze[next_row][next_col] not in ".SG":
+            if next_cell in seen or maze[next_row][next_col] not in passable:
                 continue
             seen.add(next_cell)
             frontier.append(next_cell)
@@ -112,6 +118,20 @@ def test_parse_ascii_maze_colored_keys_and_doors():
     )
     assert int(maze.door_grid[1, 4]) == KEY_COLOR_RED
     assert int(maze.door_grid[1, 6]) == KEY_COLOR_YELLOW
+
+
+def test_parse_ascii_maze_unlocked_door():
+    maze = parse_ascii_maze(
+        """
+        #######
+        #S"\\RG#
+        #######
+        """
+    )
+
+    assert int(maze.door_grid[1, 2]) == DOOR_UNLOCKED
+    assert int(maze.door_grid[1, 3]) == DOOR_UNLOCKED_YELLOW
+    assert int(maze.door_grid[1, 4]) == KEY_COLOR_RED
 
 
 def test_parse_ascii_maze_colored_wall_symbols():
@@ -237,6 +257,35 @@ def test_my_way_home_map_has_vizdoom_footprint():
     )
     assert jnp.allclose(maze.goal_xy, jnp.asarray([28.5, 16.5]))
     assert all(goal in _reachable_cells(rows, start) for start in starts)
+
+
+def test_key_corridor_requires_key_before_locked_goal():
+    rows = MAZE_KEY_CORRIDOR.strip().splitlines()
+    start = next(
+        (row_idx, col_idx)
+        for row_idx, row in enumerate(rows)
+        for col_idx, char in enumerate(row)
+        if char == "S"
+    )
+    key = next(
+        (row_idx, col_idx)
+        for row_idx, row in enumerate(rows)
+        for col_idx, char in enumerate(row)
+        if char == "r"
+    )
+    goal = next(
+        (row_idx, col_idx)
+        for row_idx, row in enumerate(rows)
+        for col_idx, char in enumerate(row)
+        if char == "G"
+    )
+
+    before_key = _reachable_cells(rows, start, {".", "S", "r", '"', "\\"})
+    after_key = _reachable_cells(rows, key, {".", "S", "r", '"', "\\", "R", "G"})
+
+    assert key in before_key
+    assert goal not in before_key
+    assert goal in after_key
 
 
 def test_my_way_home_colored_variant_matches_colorless_topology():

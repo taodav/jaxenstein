@@ -100,12 +100,12 @@ def test_dmlab_map_to_ascii_converts_entities_and_decal_wall_color():
 
 def test_generated_dmlab_nav_maze_maps_parse_and_are_registered():
     dmlab_maps = {
-        "dmlab-nav-maze-static-01": DMLAB_NAV_MAZE_STATIC_01,
-        "dmlab-nav-maze-static-02": DMLAB_NAV_MAZE_STATIC_02,
-        "dmlab-nav-maze-static-03": DMLAB_NAV_MAZE_STATIC_03,
-        "dmlab-nav-maze-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
-        "dmlab-nav-maze-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
-        "dmlab-nav-maze-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
+        "dmlab-static-01": DMLAB_NAV_MAZE_STATIC_01,
+        "dmlab-static-02": DMLAB_NAV_MAZE_STATIC_02,
+        "dmlab-static-03": DMLAB_NAV_MAZE_STATIC_03,
+        "dmlab-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
+        "dmlab-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
+        "dmlab-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
     }
 
     for name, ascii_map in dmlab_maps.items():

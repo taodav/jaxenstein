@@ -14,6 +14,21 @@ MAZE_KEY_DOOR = """
 ###########
 """
 
+MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS = 30 * 4**2
+
+MAZE_KEY_CORRIDOR = r"""
+##########
+#..#.."..#
+#r."..#..#
+####..####
+#..\S.RG.#
+#..#..#..#
+####..####
+#.."..\..#
+#..#..#..#
+##########
+"""
+
 MAZE_STRAIGHT_CORRIDOR = """
 ###########
 #S.......G#
@@ -252,25 +267,27 @@ DMLAB_NAV_MAZE_01 = DMLAB_NAV_MAZE_STATIC_01
 MAPS_BY_NAME = {
     "simple": MAZE_SIMPLE,
     "key-door": MAZE_KEY_DOOR,
+    "key-corridor": MAZE_KEY_CORRIDOR,
     "my-way-home": MAZE_MY_WAY_HOME,
     "my-way-home-colorless": MAZE_MY_WAY_HOME_COLORLESS,
-    "dmlab-nav-maze-static-01": DMLAB_NAV_MAZE_STATIC_01,
-    "dmlab-nav-maze-static-02": DMLAB_NAV_MAZE_STATIC_02,
-    "dmlab-nav-maze-static-03": DMLAB_NAV_MAZE_STATIC_03,
-    "dmlab-nav-maze-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
-    "dmlab-nav-maze-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
-    "dmlab-nav-maze-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
+    "dmlab-static-01": DMLAB_NAV_MAZE_STATIC_01,
+    "dmlab-static-02": DMLAB_NAV_MAZE_STATIC_02,
+    "dmlab-static-03": DMLAB_NAV_MAZE_STATIC_03,
+    "dmlab-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
+    "dmlab-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
+    "dmlab-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
 }
 
 MAP_EPISODE_HORIZONS_BY_NAME = {
+    "key-corridor": MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS,
     "my-way-home": VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
     "my-way-home-colorless": VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
-    "dmlab-nav-maze-static-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
-    "dmlab-nav-maze-static-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
-    "dmlab-nav-maze-static-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
-    "dmlab-nav-maze-random-goal-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
-    "dmlab-nav-maze-random-goal-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
-    "dmlab-nav-maze-random-goal-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
+    "dmlab-static-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
+    "dmlab-static-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
+    "dmlab-static-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
+    "dmlab-random-goal-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
+    "dmlab-random-goal-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
+    "dmlab-random-goal-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
 }
 
 MAP_RENDER_KWARGS_BY_NAME = {

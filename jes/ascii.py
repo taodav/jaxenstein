@@ -87,7 +87,12 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
             if char not in allowed:
                 raise ValueError(f"unsupported maze symbol {char!r}")
 
-            if char in WALL_SYMBOLS:
+            if char in DOOR_SYMBOLS:
+                wall_grid[row_idx, col_idx] = False
+                color_grid[row_idx, col_idx] = 0
+                door_grid[row_idx, col_idx] = DOOR_SYMBOLS[char]
+                continue
+            elif char in WALL_SYMBOLS:
                 color_grid[row_idx, col_idx] = WALL_SYMBOLS[char]
                 continue
 
@@ -105,8 +110,6 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
                 if kind == OBJECT_GOAL:
                     if goal_xy is None:
                         goal_xy = xy
-            elif char in DOOR_SYMBOLS:
-                door_grid[row_idx, col_idx] = DOOR_SYMBOLS[char]
 
     if not spawn_xy_options:
         raise ValueError("maze must contain at least one spawn")

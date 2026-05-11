@@ -32,14 +32,15 @@ y = row + 0.5
 ```
 
 The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor.
-`#` and colored wall symbols remain static walls.
+`#` and colored wall symbols remain static walls. Rows may be ragged; shorter
+rows are padded with walls when maps are stacked into a batch.
 
 ## Symbol Table
 
 | Symbol | Meaning |
 | --- | --- |
 | `#` | default static wall |
-| `1`-`9`, generated symbols | colored static wall |
+| `1`-`9`, generated DMLab symbols | colored static wall |
 | `.` | floor |
 | space | floor |
 | `S` | spawn candidate |
@@ -48,12 +49,29 @@ The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor.
 | `r` | red key |
 | `b` | blue key |
 | `y` | yellow key |
-| `D` | red door |
-| `R` | red door |
-| `B` | blue door |
-| `Y` | yellow door |
+| `"` | blue unlocked door |
+| `\` | yellow unlocked door |
+| `D` | red-locked door |
+| `R` | red-locked door |
+| `B` | blue-locked door |
+| `Y` | yellow-locked door |
 
-Keys are billboard pickup objects. Doors are grid cells: closed doors block movement and render as paneled colored wall slices; open doors become passable.
+## Map Semantics
+
+Static walls are impassable forever. Closed doors are also impassable, but
+`ACTION_INTERACT` can open the door in front of the agent. Unlocked doors
+(`"`, `\`) open without a key. Locked doors open only when the carried key
+color matches the door's encoded color. Closed doors render as colored panels:
+unlocked doors use their cue color, and locked doors use the color of the
+required key.
+
+Keys are billboard pickup objects. Walking near a key picks it up and records
+the color in `state.carried_keys`. Goals are billboard pickup objects too:
+walking near the active goal gives reward `1.0` and ends the episode. If a map
+contains multiple `G` symbols, reset samples exactly one active goal candidate.
+
+Objects are stored in row-major ASCII order. Padded object slots use
+`OBJECT_NONE` when maps with different object counts are batched together.
 
 ## Actions
 
@@ -73,7 +91,7 @@ from jes import (
 | `ACTION_TURN_RIGHT` | `1` | rotate right |
 | `ACTION_MOVE_FORWARD` | `2` | move forward with collision |
 | `ACTION_MOVE_BACKWARD` | `3` | move backward with collision |
-| `ACTION_INTERACT` | `4` | open the door in front of the agent if the matching key is carried |
+| `ACTION_INTERACT` | `4` | open the door in front of the agent if it is unlocked or the matching key is carried |
 
 ## Key-Door Example
 
@@ -91,6 +109,23 @@ Interactive play:
 
 ```bash
 uv run python play.py --maze key-door
+```
+
+## MiniGrid KeyCorridor
+
+`jes.maps.MAZE_KEY_CORRIDOR` is a fixed MiniGrid
+`MiniGrid-KeyCorridorS4R3-v0`-style map. It uses a 3-by-3 room grid with
+2-by-2 room interiors, a connected middle hallway, colored unlocked doors to
+side rooms, one red key, and one red-locked door guarding the goal. This mirrors
+the source structure: the middle column is connected as a hallway, a locked
+door is placed on the left wall of a right-column room, the target is behind
+that door, the matching key is placed in a left-column room, and extra unlocked
+doors connect the remaining rooms. MiniGrid's default `max_steps` for this
+configuration is
+`30 * room_size**2 = 480`, mirrored by `MAP_EPISODE_HORIZONS_BY_NAME`.
+
+```bash
+uv run python play.py --maze key-corridor
 ```
 
 ## ViZDoom My Way Home
@@ -121,7 +156,7 @@ variants.
 
 ```bash
 uv run python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
-uv run python play.py --maze dmlab-nav-maze-static-01
+uv run python play.py --maze dmlab-static-01
 ```
 
 ## Custom Map Example
@@ -159,7 +194,7 @@ Useful state and info fields:
 | `info["picked_object_type"]` | object type picked up on this step, or `0` |
 | `info["picked_object_color"]` | object color picked up on this step, or `0` |
 | `info["opened_door"]` | whether interact opened a door |
-| `info["opened_door_color"]` | door color opened on this step, or `0` |
+| `info["opened_door_color"]` | opened door color; negative values are unlocked colored doors, positive values are key-locked doors, and `0` means no door opened |
 
 ## Batching
 

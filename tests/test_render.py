@@ -3,8 +3,19 @@ import jax.numpy as jnp
 
 from jes.ascii import parse_ascii_maze
 from jes.maps import MAZE_SIMPLE
-from jes.objects import KEY_COLOR_RED, KEY_COLOR_YELLOW, door_wall_color_id
-from jes.render import raycast_dda, raycast_fixed_step, render_first_person
+from jes.objects import (
+    DOOR_UNLOCKED,
+    KEY_COLOR_BLUE,
+    KEY_COLOR_NONE,
+    KEY_COLOR_RED,
+    KEY_COLOR_YELLOW,
+    door_wall_color_id,
+)
+from jes.render import (
+    raycast_dda,
+    raycast_fixed_step,
+    render_first_person,
+)
 
 
 def test_raycast_depth_changes_with_rotation():
@@ -121,9 +132,18 @@ def test_key_sprite_is_sparse_key_shape():
     assert int(jnp.sum(red_pixels)) < 220
 
 
-def test_door_color_ids_are_distinct_from_default_wall_id():
-    assert int(door_wall_color_id(jnp.asarray(KEY_COLOR_RED))) != 1
-    assert int(door_wall_color_id(jnp.asarray(KEY_COLOR_YELLOW))) != 1
+def test_closed_doors_render_with_color_coded_wall_ids():
+    unlocked_door = int(door_wall_color_id(jnp.asarray(DOOR_UNLOCKED)))
+    red_door = int(door_wall_color_id(jnp.asarray(KEY_COLOR_RED)))
+    blue_door = int(door_wall_color_id(jnp.asarray(KEY_COLOR_BLUE)))
+    yellow_door = int(door_wall_color_id(jnp.asarray(KEY_COLOR_YELLOW)))
+
+    assert unlocked_door != 0
+    assert unlocked_door == blue_door
+    assert red_door != blue_door
+    assert red_door != yellow_door
+    assert blue_door != yellow_door
+    assert int(door_wall_color_id(jnp.asarray(KEY_COLOR_NONE))) == 0
 
 
 def test_object_sprite_is_visible_only_when_active_and_in_view():

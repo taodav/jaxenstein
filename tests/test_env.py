@@ -20,11 +20,21 @@ from jes.maps import (
     DMLAB_NAV_MAZE_STATIC_02,
     DMLAB_NAV_MAZE_STATIC_03,
     MAP_EPISODE_HORIZONS_BY_NAME,
+    MAPS_BY_NAME,
+    MAZE_KEY_CORRIDOR,
     MAZE_MY_WAY_HOME,
     MAZE_SIMPLE,
+    MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS,
     VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
 )
-from jes.objects import KEY_COLOR_BLUE, KEY_COLOR_RED, OBJECT_GOAL, OBJECT_KEY
+from jes.objects import (
+    DOOR_UNLOCKED,
+    DOOR_UNLOCKED_YELLOW,
+    KEY_COLOR_BLUE,
+    KEY_COLOR_RED,
+    OBJECT_GOAL,
+    OBJECT_KEY,
+)
 
 
 def test_reset_returns_rgb_observation_and_spawn_state():
@@ -40,7 +50,10 @@ def test_reset_returns_rgb_observation_and_spawn_state():
     assert env.floor_pattern is True
     assert env.wall_height_scale == 1.35
     assert jnp.array_equal(state.object_active, jnp.asarray([True]))
-    assert jnp.array_equal(state.carried_keys, jnp.asarray([False, False, False, False]))
+    assert jnp.array_equal(
+        state.carried_keys,
+        jnp.asarray([False, False, False, False]),
+    )
 
 
 def test_custom_observation_resolution():
@@ -182,6 +195,24 @@ def test_my_way_home_horizon_matches_vizdoom_timeout():
     assert int(env.episode_horizons[0]) == VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT
 
 
+def test_key_corridor_is_registered_with_minigrid_horizon():
+    env = RayMazeEnv.from_ascii(
+        [MAPS_BY_NAME["key-corridor"]],
+        episode_horizons=[MAP_EPISODE_HORIZONS_BY_NAME["key-corridor"]],
+    )
+    door_grid = env.maze_batch.door_grids[0]
+
+    assert MAPS_BY_NAME["key-corridor"] == MAZE_KEY_CORRIDOR
+    assert MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS == 480
+    assert int(env.episode_horizons[0]) == MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS
+    assert int(jnp.sum(door_grid < 0)) == 5
+    assert int(jnp.sum(door_grid == DOOR_UNLOCKED)) == 3
+    assert int(jnp.sum(door_grid == DOOR_UNLOCKED_YELLOW)) == 2
+    assert int(jnp.sum(door_grid == KEY_COLOR_RED)) == 1
+    assert int(jnp.sum(env.maze_batch.object_type[0] == OBJECT_KEY)) == 1
+    assert int(jnp.sum(env.maze_batch.object_type[0] == OBJECT_GOAL)) == 1
+
+
 def test_dmlab_nav_maze_horizons_match_source_frame_steps():
     env = RayMazeEnv.from_ascii(
         [
@@ -190,9 +221,9 @@ def test_dmlab_nav_maze_horizons_match_source_frame_steps():
             DMLAB_NAV_MAZE_STATIC_03,
         ],
         episode_horizons=[
-            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-static-01"],
-            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-static-02"],
-            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-static-03"],
+            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-static-01"],
+            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-static-02"],
+            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-static-03"],
         ],
     )
 
@@ -204,9 +235,9 @@ def test_dmlab_nav_maze_horizons_match_source_frame_steps():
     assert DMLAB_NAV_MAZE_02_MAX_STEPS == 4500
     assert DMLAB_NAV_MAZE_03_MAX_STEPS == 9000
     assert env.episode_horizons.tolist() == [1800, 4500, 9000]
-    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-random-goal-01"] == 1800
-    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-random-goal-02"] == 4500
-    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-nav-maze-random-goal-03"] == 9000
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-goal-01"] == 1800
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-goal-02"] == 4500
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-goal-03"] == 9000
 
 
 def test_forward_collision_noops_at_wall():
@@ -306,6 +337,46 @@ def test_interact_opens_matching_colored_door():
     _, passed_state, _, _, _ = env.step(opened_state, ACTION_MOVE_FORWARD)
 
     assert passed_state.pos[0] > opened_state.pos[0]
+
+
+def test_interact_opens_unlocked_door_without_key():
+    env = RayMazeEnv.from_ascii(
+        [
+            """
+            ######
+            #S".G#
+            ######
+            """
+        ]
+    )
+    _, state = env.reset(jax.random.key(0), 0)
+
+    _, opened_state, _, _, info = env.step(state, ACTION_INTERACT)
+
+    assert bool(info["opened_door"])
+    assert int(info["opened_door_color"]) == DOOR_UNLOCKED
+    assert bool(opened_state.door_open[1, 2])
+    assert not bool(jnp.any(opened_state.carried_keys))
+
+
+def test_key_corridor_locked_door_requires_matching_key():
+    env = RayMazeEnv.from_ascii([MAZE_KEY_CORRIDOR])
+    _, state = env.reset(jax.random.key(0), 0)
+    near_locked_door = state.replace(pos=jnp.asarray([5.2, 4.5], dtype=jnp.float32))
+
+    _, blocked_state, _, _, blocked_info = env.step(near_locked_door, ACTION_INTERACT)
+
+    carried_red_key = state.carried_keys.at[KEY_COLOR_RED].set(True)
+    _, opened_state, _, _, opened_info = env.step(
+        near_locked_door.replace(carried_keys=carried_red_key),
+        ACTION_INTERACT,
+    )
+
+    assert not bool(blocked_info["opened_door"])
+    assert not bool(blocked_state.door_open[4, 6])
+    assert bool(opened_info["opened_door"])
+    assert int(opened_info["opened_door_color"]) == KEY_COLOR_RED
+    assert bool(opened_state.door_open[4, 6])
 
 
 def test_interact_wrong_key_does_not_open_door():

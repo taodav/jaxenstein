@@ -42,6 +42,7 @@ KEY_ACTIONS = {
 }
 DEFAULT_TICK_MS = 50
 DEFAULT_RECORD_PATH = "trajectory.gif"
+DEFAULT_FRAME_PDF_STEM = "jaxenstein-frame"
 
 
 class Player:
@@ -65,6 +66,7 @@ class Player:
         self.tick_ms = tick_ms
         self.record_path = record_path
         self.recorded_frames: list[np.ndarray] = []
+        self.frame_pdf_index = 0
         self.key = jax.random.key(0)
         self.step_fn = jax.jit(self.env.step)
         self.reset_fn = jax.jit(self.env.reset)
@@ -104,6 +106,12 @@ class Player:
             return
         if key == "r":
             self.reset()
+            return
+        # P saves a one-off PDF snapshot without joining the held-action loop.
+        if key == "p":
+            if key not in self.pressed_keys:
+                self.pressed_keys.add(key)
+                self.save_frame_pdf()
             return
         if key not in KEY_ACTIONS:
             return
@@ -186,6 +194,23 @@ class Player:
 
     def run(self) -> None:
         self.root.mainloop()
+
+    def save_frame_pdf(self) -> None:
+        path = self._next_frame_pdf_path()
+        rgb = np.asarray(self.obs)
+        frame = Image.fromarray(rgb).resize(
+            (rgb.shape[1] * self.scale, rgb.shape[0] * self.scale),
+            Image.Resampling.NEAREST,
+        )
+        frame.convert("RGB").save(path, "PDF")
+        print(f"Saved frame to {path}")
+
+    def _next_frame_pdf_path(self) -> Path:
+        while True:
+            self.frame_pdf_index += 1
+            path = Path(f"{DEFAULT_FRAME_PDF_STEM}-{self.frame_pdf_index:04d}.pdf")
+            if not path.exists():
+                return path
 
     def close(self, event: tk.Event | None = None) -> None:
         del event

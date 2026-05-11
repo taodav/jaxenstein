@@ -10,6 +10,7 @@ import jax.numpy as jnp
 
 from jes.ascii import Maze, MazeBatch, parse_and_stack, stack_mazes
 from jes.objects import (
+    DOOR_LOCKED_WALL_COLOR_OFFSET,
     KEY_COLOR_NONE,
     NUM_KEY_COLORS,
     OBJECT_GOAL,
@@ -308,7 +309,14 @@ def _render_color_grid(
     color_grid: jax.Array, door_grid: jax.Array, door_open: jax.Array
 ) -> jax.Array:
     closed = _closed_door_mask(door_grid, door_open)
-    return jnp.where(closed, door_wall_color_id(door_grid), color_grid)
+    door_color = door_wall_color_id(door_grid)
+    locked_door = door_grid > KEY_COLOR_NONE
+    door_color = jnp.where(
+        locked_door,
+        door_color + DOOR_LOCKED_WALL_COLOR_OFFSET,
+        door_color,
+    )
+    return jnp.where(closed, door_color, color_grid)
 
 
 def _interact_with_door(
@@ -330,13 +338,15 @@ def _interact_with_door(
     clipped_y = jnp.clip(cell_y, 0, h - 1)
 
     door_color = door_grid[clipped_y, clipped_x]
-    has_key = jnp.take(carried_keys, door_color, mode="clip")
+    is_unlocked_door = door_color < KEY_COLOR_NONE
+    door_key_color = jnp.maximum(door_color, KEY_COLOR_NONE)
+    has_key = jnp.take(carried_keys, door_key_color, mode="clip")
     opened_door = (
         should_interact
         & inside
         & (door_color != KEY_COLOR_NONE)
         & ~door_open[clipped_y, clipped_x]
-        & has_key
+        & (is_unlocked_door | has_key)
     )
 
     new_cell_open = door_open[clipped_y, clipped_x] | opened_door
