@@ -88,6 +88,9 @@ class RayMazeEnv:
         floor_checker_light_rgb: Sequence[float] | jax.Array = FLOOR_CHECKER_LIGHT_RGB,
         wall_height_scale: float = 1.35,
         floor_pattern: bool = True,
+        goal_reward: float | jax.Array = 1.0,
+        living_reward: float | jax.Array = 0.0,
+        gamma: float = 0.99,
     ):
         self.maze_batch = maze_batch
         self.params = EnvParams() if params is None else params
@@ -106,6 +109,9 @@ class RayMazeEnv:
         )
         self.wall_height_scale = wall_height_scale
         self.floor_pattern = floor_pattern
+        self.goal_reward = jnp.asarray(goal_reward, dtype=jnp.float32)
+        self.living_reward = jnp.asarray(living_reward, dtype=jnp.float32)
+        self.gamma = float(gamma)
         self.episode_horizons = _episode_horizon_array(
             episode_horizons,
             num_mazes=int(maze_batch.wall_grids.shape[0]),
@@ -255,7 +261,11 @@ class RayMazeEnv:
         t = state.t + jnp.where(active, 1, 0).astype(jnp.int32)
         episode_horizon = self.episode_horizons[state.maze_id]
         done = state.done | reached_goal | (t >= episode_horizon)
-        reward = jnp.where(active & reached_goal, 1.0, 0.0).astype(jnp.float32)
+        reward = jnp.where(
+            active,
+            self.living_reward + jnp.where(reached_goal, self.goal_reward, 0.0),
+            0.0,
+        ).astype(jnp.float32)
 
         new_state = State(
             pos=pos,

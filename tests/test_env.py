@@ -19,7 +19,9 @@ from jes.maps import (
     DMLAB_NAV_MAZE_STATIC_01,
     DMLAB_NAV_MAZE_STATIC_02,
     DMLAB_NAV_MAZE_STATIC_03,
+    MAP_DISCOUNT_GAMMAS_BY_NAME,
     MAP_EPISODE_HORIZONS_BY_NAME,
+    MAP_REWARD_KWARGS_BY_NAME,
     MAPS_BY_NAME,
     MAZE_KEY_CORRIDOR,
     MAZE_MY_WAY_HOME,
@@ -67,6 +69,52 @@ def test_custom_observation_resolution():
     assert obs.shape == (96, 128, 3)
     assert rendered.shape == (96, 128, 3)
     assert obs.dtype == jnp.uint8
+
+
+def test_custom_rewards_and_gamma():
+    env = RayMazeEnv.from_ascii(
+        [MAZE_SIMPLE],
+        goal_reward=10.0,
+        living_reward=-0.1,
+        gamma=0.999,
+    )
+    _, state = env.reset(jax.random.key(0))
+
+    _, _, reward, done, _ = env.step(state, ACTION_TURN_LEFT)
+    near_goal = state.replace(pos=jnp.asarray([7.25, 3.5], dtype=jnp.float32))
+    _, next_state, goal_reward, goal_done, _ = env.step(
+        near_goal,
+        ACTION_MOVE_FORWARD,
+    )
+    _, _, inactive_reward, _, _ = env.step(next_state, ACTION_TURN_LEFT)
+
+    assert env.gamma == 0.999
+    assert bool(jnp.isclose(reward, -0.1))
+    assert not bool(done)
+    assert bool(goal_done)
+    assert bool(jnp.isclose(goal_reward, 9.9))
+    assert bool(jnp.isclose(inactive_reward, 0.0))
+
+
+def test_named_reward_and_gamma_specs_match_reference_tasks():
+    assert MAP_REWARD_KWARGS_BY_NAME["my-way-home"] == {
+        "goal_reward": 1.0,
+        "living_reward": -0.0001,
+    }
+    assert MAP_REWARD_KWARGS_BY_NAME["dmlab-static-01"] == {
+        "goal_reward": 10.0,
+        "living_reward": 0.0,
+    }
+    assert MAP_REWARD_KWARGS_BY_NAME["dmlab-random-goal-03"] == {
+        "goal_reward": 10.0,
+        "living_reward": 0.0,
+    }
+    assert MAP_DISCOUNT_GAMMAS_BY_NAME["simple"] == 0.99
+    assert MAP_DISCOUNT_GAMMAS_BY_NAME["key-door"] == 0.99
+    assert MAP_DISCOUNT_GAMMAS_BY_NAME["my-way-home"] == 0.999
+    assert MAP_DISCOUNT_GAMMAS_BY_NAME["dmlab-static-01"] == 0.999
+    assert MAP_DISCOUNT_GAMMAS_BY_NAME["dmlab-static-02"] == 0.9995
+    assert MAP_DISCOUNT_GAMMAS_BY_NAME["dmlab-static-03"] == 0.9999
 
 
 def test_reset_samples_multiple_spawns_from_key():

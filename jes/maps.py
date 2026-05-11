@@ -61,6 +61,17 @@ DMLAB_NAV_MAZE_03_MAX_STEPS = (
     DMLAB_NAV_MAZE_03_EPISODE_LENGTH_SECONDS * DMLAB_NAV_MAZE_HORIZON_FPS
 )
 
+DEFAULT_GOAL_REWARD = 1.0
+DEFAULT_LIVING_REWARD = 0.0
+DEFAULT_DISCOUNT_GAMMA = 0.99
+VIZDOOM_MY_WAY_HOME_GOAL_REWARD = 1.0
+VIZDOOM_MY_WAY_HOME_LIVING_REWARD = -0.0001
+VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA = 0.999
+DMLAB_GOAL_REWARD = 10.0
+DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA = 0.999
+DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA = 0.9995
+DMLAB_NAV_MAZE_03_DISCOUNT_GAMMA = 0.9999
+
 
 def _dmlab_wall_palette(
     primary_wall: list[int],
@@ -345,6 +356,67 @@ MAPS_BY_NAME = {
     "dmlab-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
     "dmlab-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
     "dmlab-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
+}
+
+MAP_REWARD_KWARGS_BY_NAME = {
+    "simple": {
+        "goal_reward": DEFAULT_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "key-door": {
+        "goal_reward": DEFAULT_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "key-corridor": {
+        "goal_reward": DEFAULT_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "my-way-home": {
+        "goal_reward": VIZDOOM_MY_WAY_HOME_GOAL_REWARD,
+        "living_reward": VIZDOOM_MY_WAY_HOME_LIVING_REWARD,
+    },
+    "my-way-home-colorless": {
+        "goal_reward": VIZDOOM_MY_WAY_HOME_GOAL_REWARD,
+        "living_reward": VIZDOOM_MY_WAY_HOME_LIVING_REWARD,
+    },
+    "dmlab-static-01": {
+        "goal_reward": DMLAB_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "dmlab-static-02": {
+        "goal_reward": DMLAB_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "dmlab-static-03": {
+        "goal_reward": DMLAB_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "dmlab-random-goal-01": {
+        "goal_reward": DMLAB_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "dmlab-random-goal-02": {
+        "goal_reward": DMLAB_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+    "dmlab-random-goal-03": {
+        "goal_reward": DMLAB_GOAL_REWARD,
+        "living_reward": DEFAULT_LIVING_REWARD,
+    },
+}
+
+MAP_DISCOUNT_GAMMAS_BY_NAME = {
+    "simple": DEFAULT_DISCOUNT_GAMMA,
+    "key-door": DEFAULT_DISCOUNT_GAMMA,
+    "key-corridor": DEFAULT_DISCOUNT_GAMMA,
+    "my-way-home": VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA,
+    "my-way-home-colorless": VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA,
+    "dmlab-static-01": DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA,
+    "dmlab-random-goal-01": DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA,
+    "dmlab-static-02": DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA,
+    "dmlab-random-goal-02": DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA,
+    "dmlab-static-03": DMLAB_NAV_MAZE_03_DISCOUNT_GAMMA,
+    "dmlab-random-goal-03": DMLAB_NAV_MAZE_03_DISCOUNT_GAMMA,
 }
 
 MAP_EPISODE_HORIZONS_BY_NAME = {
