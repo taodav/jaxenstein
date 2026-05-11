@@ -168,9 +168,10 @@ def test_closed_doors_render_with_color_coded_wall_ids():
 def test_object_sprite_is_visible_only_when_active_and_in_view():
     maze = parse_ascii_maze(MAZE_SIMPLE)
     object_active = jnp.ones_like(maze.object_type, dtype=jnp.bool_)
+    viewer_xy = jnp.asarray([5.5, 3.5], dtype=jnp.float32)
 
     facing_goal = render_first_person(
-        maze.spawn_xy,
+        viewer_xy,
         maze.spawn_theta,
         maze.wall_grid,
         maze.color_grid,
@@ -180,7 +181,7 @@ def test_object_sprite_is_visible_only_when_active_and_in_view():
         object_active=object_active,
     )
     facing_away = render_first_person(
-        maze.spawn_xy,
+        viewer_xy,
         jnp.asarray(jnp.pi, dtype=jnp.float32),
         maze.wall_grid,
         maze.color_grid,
@@ -190,7 +191,7 @@ def test_object_sprite_is_visible_only_when_active_and_in_view():
         object_active=object_active,
     )
     inactive = render_first_person(
-        maze.spawn_xy,
+        viewer_xy,
         maze.spawn_theta,
         maze.wall_grid,
         maze.color_grid,

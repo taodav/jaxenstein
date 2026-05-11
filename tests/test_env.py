@@ -45,6 +45,7 @@ def test_reset_returns_rgb_observation_and_spawn_state():
     assert obs.shape == (64, 64, 3)
     assert obs.dtype == jnp.uint8
     assert jnp.allclose(state.pos, jnp.asarray([1.5, 1.5]))
+    assert jnp.allclose(state.goal_xy, jnp.asarray([7.5, 3.5]))
     assert int(state.t) == 0
     assert not bool(state.done)
     assert env.floor_pattern is True
@@ -289,7 +290,7 @@ def test_backward_movement_uses_collision():
 def test_sparse_goal_reward_and_done():
     env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
     _, state = env.reset(jax.random.key(0))
-    near_goal = state.replace(pos=jnp.asarray([7.25, 1.5], dtype=jnp.float32))
+    near_goal = state.replace(pos=jnp.asarray([7.25, 3.5], dtype=jnp.float32))
 
     _, next_state, reward, done, info = env.step(near_goal, ACTION_MOVE_FORWARD)
 
