@@ -1,104 +1,77 @@
 # JAXENSTEIN
 
-A small Wolfenstein-style first-person maze renderer and environment in JAX.
+First-person maze environments in JAX.
 
-The current environment supports:
+Features: ASCII maps, RGB raycast observations, billboard sprites, colored keys
+and doors, sparse goal rewards, and JIT/vmap-friendly environment steps.
 
-- ASCII-authored mazes
-- first-person RGB observations
-- DDA grid raycasting
-- billboard object sprites
-- colored keys and locked or unlocked doors
-- sparse goal reward
-- JIT and vmap-friendly reset, step, and render paths
-- an interactive Tk player
+## Install
 
-## Setup
-
-Use `uv` from the repository root:
+`pip` is enough for normal installs:
 
 ```bash
-uv sync --extra dev
+pip install git+https://github.com/taodav/jaxenstein.git
+```
+
+For local development and scripts:
+
+```bash
+git clone https://github.com/taodav/jaxenstein.git
+cd jaxenstein
+pip install -e ".[dev]"
 ```
 
 ## Environments
 
-Pass these IDs to `play.py --maze <id>` or look them up in
-`jes.maps.MAPS_BY_NAME`.
+Use an ID with `play.py --maze {ID}` or `jes.maps.MAPS_BY_NAME`.
 
-| Group | Environment | ID | Description |
-| --- | --- | --- | --- |
-| Basic | Simple maze | `simple` | Small navigation task with one spawn, one goal, and interior walls for movement and collision checks. |
-| Basic | Key-door maze | `key-door` | Linear key-door task where the agent must collect the red key, open the red door, and reach the goal. |
-| MiniGrid | KeyCorridorS4R3 | `key-corridor` | Fixed MiniGrid KeyCorridorS4R3-style map with a red key, colored unlocked doors, a red-locked door to the goal, and a 480-step horizon. |
-| ViZDoom | My Way Home | `my-way-home` | Large ViZDoom My Way Home conversion with 17 spawn candidates, colored wall regions, a single green-armor goal, and a 2100-step timeout. |
-| ViZDoom | My Way Home, colorless walls | `my-way-home-colorless` | Same My Way Home topology and timeout, but with default colorless walls. |
-| DeepMind Lab static-goal | Static 01 | `dmlab-static-01` | Small converted DMLab nav maze with a fixed goal, sampled spawn candidates, decal-derived wall colors, and an 1800-step horizon. |
-| DeepMind Lab static-goal | Static 02 | `dmlab-static-02` | Medium converted DMLab nav maze with a fixed goal, sampled spawn candidates, decal-derived wall colors, and a 4500-step horizon. |
-| DeepMind Lab static-goal | Static 03 | `dmlab-static-03` | Large converted DMLab nav maze with a fixed goal, sampled spawn candidates, decal-derived wall colors, and a 9000-step horizon. |
-| DeepMind Lab random-goal | Random Goal 01 | `dmlab-random-goal-01` | Small converted DMLab nav maze where one apple-reward goal candidate is sampled active at reset, with an 1800-step horizon. |
-| DeepMind Lab random-goal | Random Goal 02 | `dmlab-random-goal-02` | Medium converted DMLab nav maze with one active sampled goal, decal-derived wall colors, and a 4500-step horizon. |
-| DeepMind Lab random-goal | Random Goal 03 | `dmlab-random-goal-03` | Large converted DMLab nav maze with one active sampled goal, dense landmark wall colors, and a 9000-step horizon. |
+| Environment | ID | Description |
+| --- | --- | --- |
+| Simple | `simple` | Small navigation task with one start and one goal. |
+| Key-door | `key-door` | Collect a red key, open a red door, reach the goal. |
+| MiniGrid KeyCorridorS4R3 | `key-corridor` | 3-by-3 room key corridor with colored doors and a locked goal room. |
+| ViZDoom My Way Home | `my-way-home` | Large maze with many starts, colored walls, and one goal. |
+| DMLab static goal | `dmlab-static-{01,02,03}` | Fixed-goal mazes; `01` small, `02` medium, `03` large. |
+| DMLab random goal | `dmlab-random-goal-{01,02,03}` | Same sizes; one goal candidate is active each episode. |
 
-## Play
+## Scripts
+
+### `play.py`
 
 ```bash
-uv run python play.py
+python play.py --maze key-door
 ```
 
-Controls:
+Options:
 
-| Key | Action |
+| Option | Meaning |
 | --- | --- |
-| `W` | move forward |
-| `S` | move backward |
-| `A` | turn left |
-| `D` | turn right |
-| `Space` | interact |
-| `R` | reset |
-| `Q` / `Escape` | quit |
+| `--maze {ID}` | Environment ID. |
+| `--resolution N` | Square render resolution. |
+| `--resolution WIDTHxHEIGHT` | Rectangular render resolution. |
+| `--scale N` | Integer display scale. |
+| `--tick-ms MS` | Delay between held-key steps. |
+| `--record [PATH]` | Save a GIF. Default path is `trajectory.gif`. |
 
-Play the key-door demo:
+Controls: `W/S` move, `A/D` turn, `Space` interact, `R` reset,
+`Q` or `Escape` quit.
 
-```bash
-uv run python play.py --maze key-door
-```
-
-Play the ViZDoom My Way Home maze conversion:
+### `scripts/compare_raycast_speed.py`
 
 ```bash
-uv run python play.py --maze my-way-home
+python scripts/compare_raycast_speed.py --map my-way-home --widths 64 160 320
 ```
 
-Play a DeepMind Lab nav maze conversion:
+Options: `--map`, `--widths`, `--max-depth`, `--samples`, `--repeats`,
+`--spawn-index`, `--theta`.
+
+### `scripts/convert_dmlab_map.py`
 
 ```bash
-uv run python play.py --maze dmlab-static-01
+python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
 ```
 
-The DMLab source levels set `episodeLengthSeconds` to 60, 150, and 300 for
-maze indices 01, 02, and 03. Using a Doom-like 30 Hz step budget, Jaxenstein
-uses horizons of 1800, 4500, and 9000 for both static and random-goal
-variants.
-
-All maps render with a higher wall scale and checker floor by default. This map also uses colored wall symbols and the original ViZDoom `episode_timeout` of 2100 steps. The same topology is available without wall colors (for a harder memory testing environment):
-
-```bash
-uv run python play.py --maze my-way-home-colorless
-```
-
-Record a GIF of the trajectory:
-
-```bash
-uv run python play.py --maze key-door --record runs/key-door.gif
-```
-
-Useful display options:
-
-```bash
-uv run python play.py --resolution 128 --scale 4 --tick-ms 30
-uv run python play.py --resolution 320x240 --scale 2
-```
+Prints the Jaxenstein ASCII map for a DMLab `.map` file.
 
 ## Python Usage
 
@@ -110,31 +83,27 @@ from jes import ACTION_MOVE_FORWARD, RayMazeEnv
 from jes.maps import MAZE_SIMPLE
 
 env = RayMazeEnv.from_ascii([MAZE_SIMPLE], img_h=128, img_w=128)
-obs, state = env.reset(jax.random.key(0), jnp.asarray(0, dtype=jnp.int32))
+obs, state = env.reset(jax.random.key(0))
 obs, state, reward, done, info = env.step(state, ACTION_MOVE_FORWARD)
 
-print(obs.shape)  # (64, 64, 3)
+print(obs.shape)  # (128, 128, 3)
 print(obs.dtype)  # uint8
 ```
 
-The core environment APIs are compatible with JAX transforms:
+The core API works with JAX transforms:
 
 ```python
-jit_reset = jax.jit(env.reset)
-jit_step = jax.jit(env.step)
-jit_render = jax.jit(env.render)
-
 keys = jax.random.split(jax.random.key(0), 8)
-maze_ids = jnp.zeros((8,), dtype=jnp.int32)
-obs, states = jax.vmap(env.reset)(keys, maze_ids)
+obs, states = jax.vmap(env.reset)(keys)
 
 actions = jnp.full((8,), ACTION_MOVE_FORWARD, dtype=jnp.int32)
 obs, states, reward, done, info = jax.vmap(env.step)(states, actions)
 ```
 
-## ASCII Mazes
+If an environment batch contains multiple maps, `reset(key)` samples one from
+the key.
 
-Maps are plain strings. Example:
+## ASCII Maps
 
 ```python
 MAZE_KEY_DOOR = """
@@ -144,10 +113,12 @@ MAZE_KEY_DOOR = """
 """
 ```
 
-`S` marks a spawn candidate, `G` marks a goal candidate, lowercase symbols are colored keys, uppercase door symbols encode the required key, `"`, and `\` are colored unlocked doors, and digit or generated symbols are colored walls. Multiple `S` and `G` cells are sampled uniformly on reset. See [jes/MAZES.md](jes/MAZES.md) for the full ASCII map semantics and examples.
+Common symbols: `S` start, `G` goal, lowercase keys, uppercase locked doors,
+`"` and `\` unlocked colored doors, `#` walls, `.` floor. Multiple `S` and
+`G` cells are sampled uniformly on reset. See [jes/MAZES.md](jes/MAZES.md).
 
 ## Tests
 
 ```bash
-env JAX_PLATFORMS=cpu uv run pytest
+JAX_PLATFORMS=cpu pytest
 ```

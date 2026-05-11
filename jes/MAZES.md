@@ -176,7 +176,7 @@ CUSTOM = """
 """
 
 env = RayMazeEnv.from_ascii([CUSTOM])
-obs, state = env.reset(jax.random.key(0), jnp.asarray(0, dtype=jnp.int32))
+obs, state = env.reset(jax.random.key(0))
 
 obs, state, reward, done, info = env.step(state, ACTION_MOVE_FORWARD)
 obs, state, reward, done, info = env.step(state, ACTION_INTERACT)
@@ -210,8 +210,7 @@ from jes.maps import MAZE_KEY_DOOR, MAZE_SIMPLE
 env = RayMazeEnv.from_ascii([MAZE_SIMPLE, MAZE_KEY_DOOR])
 
 keys = jax.random.split(jax.random.key(0), 2)
-maze_ids = jnp.asarray([0, 1], dtype=jnp.int32)
-obs, states = jax.vmap(env.reset)(keys, maze_ids)
+obs, states = jax.vmap(env.reset)(keys)
 
 actions = jnp.asarray([ACTION_MOVE_FORWARD, ACTION_MOVE_FORWARD], dtype=jnp.int32)
 obs, states, reward, done, info = jax.vmap(env.step)(states, actions)

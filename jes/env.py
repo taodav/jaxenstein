@@ -110,8 +110,18 @@ class RayMazeEnv:
     def observation_shape(self) -> tuple[int, int, int]:
         return (self.img_h, self.img_w, 3)
 
-    def reset(self, key: jax.Array, maze_id: jax.Array | int = 0) -> tuple[jax.Array, State]:
-        maze_id = jnp.asarray(maze_id, dtype=jnp.int32)
+    def reset(self, key: jax.Array) -> tuple[jax.Array, State]:
+        if self.num_mazes == 1:
+            maze_id = jnp.asarray(0, dtype=jnp.int32)
+        else:
+            maze_key, key = jax.random.split(key)
+            maze_id = jax.random.randint(
+                maze_key,
+                shape=(),
+                minval=0,
+                maxval=self.num_mazes,
+                dtype=jnp.int32,
+            )
         spawn_key, goal_key = jax.random.split(key)
         spawn_idx = jax.random.randint(
             spawn_key,

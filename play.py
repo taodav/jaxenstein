@@ -123,7 +123,7 @@ class Player:
 
     def _reset_env(self) -> tuple[jax.Array, State]:
         self.key, reset_key = jax.random.split(self.key)
-        return self.reset_fn(reset_key, jnp.asarray(0, dtype=jnp.int32))
+        return self.reset_fn(reset_key)
 
     def reset(self) -> None:
         self.pressed_keys.clear()

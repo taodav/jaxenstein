@@ -136,7 +136,7 @@ def test_dmlab_random_goal_01_uses_apple_rewards_as_goals():
 def test_dmlab_random_goal_env_activates_one_goal_per_episode():
     env = RayMazeEnv.from_ascii([DMLAB_NAV_MAZE_RANDOM_GOAL_01])
 
-    _, state = env.reset(jax.random.key(0), 0)
+    _, state = env.reset(jax.random.key(0))
     active_goals = state.object_active & (
         env.maze_batch.object_type[0] == OBJECT_GOAL
     )
