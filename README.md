@@ -1,5 +1,5 @@
 <p align="center">
- <img width="80%" src="https://raw.githubusercontent.com/taodav/jaxenstein/main/images/jaxenstein.png" />
+ <img width="80%" src="images/jaxenstein.png" />
 </p>
 
 # JAXenstein
