@@ -176,12 +176,12 @@ uv run python play.py --maze my-way-home-colorless
 `jes.dmlab.dmlab_map_to_ascii` converts grid-aligned DMLab `nav_maze` `.map`
 files into ASCII maps. `info_player_start` entities become `S`, explicit
 `goal` entities become `G`, and decal image walls become stable colored wall
-symbols instead of textured patches. Random-goal maps use `apple_reward`
+symbols instead of textured patches. Random maps use `apple_reward`
 entities as `G` candidates, with one active goal sampled at reset.
 
 The DMLab Lua levels set `episodeLengthSeconds` to 60, 150, and 300 for
 indices 01, 02, and 03. Using a Doom-like 30 Hz step budget, Jaxenstein maps
-those to horizons of 1800, 4500, and 9000 for the static and random-goal
+those to horizons of 1800, 4500, and 9000 for the static and random
 variants.
 
 ```bash

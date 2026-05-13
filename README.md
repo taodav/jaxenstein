@@ -12,7 +12,7 @@ JIT/vmap-friendly environment steps.
 
 ## Install
 
-`pip` is enough for normal installs:
+You can install the JAXenstein repo through `pip`:
 
 ```bash
 pip install git+https://github.com/taodav/jaxenstein.git

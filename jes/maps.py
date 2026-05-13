@@ -388,9 +388,9 @@ MAPS_BY_NAME = {
     "dmlab-static-01": DMLAB_NAV_MAZE_STATIC_01,
     "dmlab-static-02": DMLAB_NAV_MAZE_STATIC_02,
     "dmlab-static-03": DMLAB_NAV_MAZE_STATIC_03,
-    "dmlab-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
-    "dmlab-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
-    "dmlab-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
+    "dmlab-random-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
+    "dmlab-random-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
+    "dmlab-random-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
 }
 
 HEALTH_GATHERING_MAPS_BY_NAME = {
@@ -437,15 +437,15 @@ MAP_REWARD_KWARGS_BY_NAME = {
         "goal_reward": DMLAB_GOAL_REWARD,
         "living_reward": DEFAULT_LIVING_REWARD,
     },
-    "dmlab-random-goal-01": {
+    "dmlab-random-01": {
         "goal_reward": DMLAB_GOAL_REWARD,
         "living_reward": DEFAULT_LIVING_REWARD,
     },
-    "dmlab-random-goal-02": {
+    "dmlab-random-02": {
         "goal_reward": DMLAB_GOAL_REWARD,
         "living_reward": DEFAULT_LIVING_REWARD,
     },
-    "dmlab-random-goal-03": {
+    "dmlab-random-03": {
         "goal_reward": DMLAB_GOAL_REWARD,
         "living_reward": DEFAULT_LIVING_REWARD,
     },
@@ -458,11 +458,11 @@ MAP_DISCOUNT_GAMMAS_BY_NAME = {
     "my-way-home": VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA,
     "my-way-home-colorless": VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA,
     "dmlab-static-01": DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA,
-    "dmlab-random-goal-01": DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA,
+    "dmlab-random-01": DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA,
     "dmlab-static-02": DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA,
-    "dmlab-random-goal-02": DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA,
+    "dmlab-random-02": DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA,
     "dmlab-static-03": DMLAB_NAV_MAZE_03_DISCOUNT_GAMMA,
-    "dmlab-random-goal-03": DMLAB_NAV_MAZE_03_DISCOUNT_GAMMA,
+    "dmlab-random-03": DMLAB_NAV_MAZE_03_DISCOUNT_GAMMA,
 }
 
 MAP_EPISODE_HORIZONS_BY_NAME = {
@@ -472,9 +472,9 @@ MAP_EPISODE_HORIZONS_BY_NAME = {
     "dmlab-static-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
     "dmlab-static-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
     "dmlab-static-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
-    "dmlab-random-goal-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
-    "dmlab-random-goal-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
-    "dmlab-random-goal-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
+    "dmlab-random-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
+    "dmlab-random-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
+    "dmlab-random-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
 }
 
 HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME = {
@@ -483,11 +483,11 @@ HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME = {
 
 MAP_RENDER_KWARGS_BY_NAME = {
     "dmlab-static-01": DMLAB_RENDER_KWARGS_BY_INDEX["01"],
-    "dmlab-random-goal-01": DMLAB_RENDER_KWARGS_BY_INDEX["01"],
+    "dmlab-random-01": DMLAB_RENDER_KWARGS_BY_INDEX["01"],
     "dmlab-static-02": DMLAB_RENDER_KWARGS_BY_INDEX["02"],
-    "dmlab-random-goal-02": DMLAB_RENDER_KWARGS_BY_INDEX["02"],
+    "dmlab-random-02": DMLAB_RENDER_KWARGS_BY_INDEX["02"],
     "dmlab-static-03": DMLAB_RENDER_KWARGS_BY_INDEX["03"],
-    "dmlab-random-goal-03": DMLAB_RENDER_KWARGS_BY_INDEX["03"],
+    "dmlab-random-03": DMLAB_RENDER_KWARGS_BY_INDEX["03"],
 }
 
 HEALTH_GATHERING_RENDER_KWARGS_BY_NAME = {
