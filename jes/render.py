@@ -14,6 +14,7 @@ from jes.objects import (
     KEY_COLOR_YELLOW,
     OBJECT_GOAL,
     OBJECT_KEY,
+    OBJECT_MEDKIT,
     OBJECT_NONE,
     OBJECT_CORE_PALETTE_BY_COLOR,
     OBJECT_EDGE_PALETTE_BY_COLOR,
@@ -436,6 +437,12 @@ def render_billboard_sprites(
     goal_mask = radius_sq <= 1.0
     goal_core = (radius_sq <= 0.32) | (jnp.abs(dx) < 0.16)
 
+    medkit_mask = (jnp.abs(dx) <= 0.78) & (jnp.abs(dy) <= 0.52)
+    medkit_core = (
+        ((jnp.abs(dx) <= 0.15) & (jnp.abs(dy) <= 0.42))
+        | ((jnp.abs(dy) <= 0.15) & (jnp.abs(dx) <= 0.48))
+    )
+
     head_dist = (dx + 0.48) ** 2 + (dy + 0.02) ** 2
     key_head = (head_dist <= 0.32**2) & (head_dist >= 0.17**2)
     key_head_core = (head_dist <= 0.26**2) & (head_dist >= 0.21**2)
@@ -448,8 +455,17 @@ def render_billboard_sprites(
     key_core = key_head_core | key_shaft_core | key_bit_core
 
     is_key = object_type[:, None, None] == OBJECT_KEY
-    object_mask = jnp.where(is_key, key_mask, goal_mask)
-    core_mask = jnp.where(is_key, key_core, goal_core)
+    is_medkit = object_type[:, None, None] == OBJECT_MEDKIT
+    object_mask = jnp.where(
+        is_key,
+        key_mask,
+        jnp.where(is_medkit, medkit_mask, goal_mask),
+    )
+    core_mask = jnp.where(
+        is_key,
+        key_core,
+        jnp.where(is_medkit, medkit_core, goal_core),
+    )
     visible = (
         object_active
         & (object_type != OBJECT_NONE)
@@ -470,6 +486,18 @@ def render_billboard_sprites(
     edge_rgb = jnp.take(OBJECT_EDGE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip")
     core_rgb = jnp.take(OBJECT_CORE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip")
     key_edge_rgb = jnp.asarray([44, 28, 24], dtype=jnp.float32)
+    medkit_edge_rgb = jnp.asarray([238, 238, 222], dtype=jnp.float32)
+    medkit_core_rgb = jnp.asarray([214, 28, 28], dtype=jnp.float32)
     edge_rgb = jnp.where(nearest_type[..., None] == OBJECT_KEY, key_edge_rgb, edge_rgb)
+    edge_rgb = jnp.where(
+        nearest_type[..., None] == OBJECT_MEDKIT,
+        medkit_edge_rgb,
+        edge_rgb,
+    )
+    core_rgb = jnp.where(
+        nearest_type[..., None] == OBJECT_MEDKIT,
+        medkit_core_rgb,
+        core_rgb,
+    )
     sprite_rgb = jnp.where(nearest_core[..., None], core_rgb, edge_rgb)
     return jnp.where(has_sprite[..., None], sprite_rgb, rgb)

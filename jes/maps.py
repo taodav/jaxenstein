@@ -45,6 +45,41 @@ MAZE_T = """
 """
 
 VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT = 2100
+VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT = 2100
+VIZDOOM_HEALTH_GATHERING_LIVING_REWARD = 1.0
+VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY = 100.0
+VIZDOOM_HEALTH_GATHERING_INITIAL_HEALTH = 100.0
+VIZDOOM_HEALTH_GATHERING_MAX_HEALTH = 100.0
+VIZDOOM_HEALTH_GATHERING_MEDKIT_HEAL = 25.0
+VIZDOOM_HEALTH_GATHERING_INITIAL_MEDKITS = 16
+VIZDOOM_HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL = 30
+VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE = 8.0
+VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE_INTERVAL = 35
+VIZDOOM_HEALTH_GATHERING_MAX_MEDKITS = 96
+VIZDOOM_HEALTH_GATHERING_WALL_RGB = [118, 118, 112]
+VIZDOOM_HEALTH_GATHERING_FLOOR_RGB = [32, 112, 28]
+VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB = [22, 76, 26]
+VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB = [76, 150, 44]
+
+
+def _rectangle_map(width: int, height: int, spawn_col: int, spawn_row: int) -> str:
+    rows = []
+    for row_idx in range(height):
+        if row_idx == 0 or row_idx == height - 1:
+            rows.append("#" * width)
+            continue
+
+        row = ["#"] + ["."] * (width - 2) + ["#"]
+        if row_idx == spawn_row:
+            row[spawn_col] = "S"
+        rows.append("".join(row))
+    return "\n".join(rows)
+
+
+# ViZDoom's health_gathering.wad is a 1216x1216 Doom-unit rectangle with the
+# player at (608, 608). Using 32 Doom units per cell gives a 38-cell play area
+# plus a one-cell wall border.
+MAZE_HEALTH_GATHERING = _rectangle_map(width=40, height=40, spawn_col=19, spawn_row=19)
 
 # Convert DMLab seconds to a Doom-like 30 Hz step budget.
 DMLAB_NAV_MAZE_HORIZON_FPS = 30
@@ -358,6 +393,17 @@ MAPS_BY_NAME = {
     "dmlab-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
 }
 
+HEALTH_GATHERING_MAPS_BY_NAME = {
+    "health-gathering": MAZE_HEALTH_GATHERING,
+}
+
+HEALTH_GATHERING_REWARD_KWARGS_BY_NAME = {
+    "health-gathering": {
+        "living_reward": VIZDOOM_HEALTH_GATHERING_LIVING_REWARD,
+        "death_penalty": VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY,
+    },
+}
+
 MAP_REWARD_KWARGS_BY_NAME = {
     "simple": {
         "goal_reward": DEFAULT_GOAL_REWARD,
@@ -431,6 +477,10 @@ MAP_EPISODE_HORIZONS_BY_NAME = {
     "dmlab-random-goal-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
 }
 
+HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME = {
+    "health-gathering": VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT,
+}
+
 MAP_RENDER_KWARGS_BY_NAME = {
     "dmlab-static-01": DMLAB_RENDER_KWARGS_BY_INDEX["01"],
     "dmlab-random-goal-01": DMLAB_RENDER_KWARGS_BY_INDEX["01"],
@@ -438,6 +488,23 @@ MAP_RENDER_KWARGS_BY_NAME = {
     "dmlab-random-goal-02": DMLAB_RENDER_KWARGS_BY_INDEX["02"],
     "dmlab-static-03": DMLAB_RENDER_KWARGS_BY_INDEX["03"],
     "dmlab-random-goal-03": DMLAB_RENDER_KWARGS_BY_INDEX["03"],
+}
+
+HEALTH_GATHERING_RENDER_KWARGS_BY_NAME = {
+    "health-gathering": {
+        "color_palette": [
+            [150, 150, 150],
+            VIZDOOM_HEALTH_GATHERING_WALL_RGB,
+            [74, 166, 104],
+            [78, 120, 206],
+            [236, 44, 36],
+            [48, 126, 255],
+            [255, 212, 38],
+        ],
+        "floor_rgb": VIZDOOM_HEALTH_GATHERING_FLOOR_RGB,
+        "floor_checker_dark_rgb": VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB,
+        "floor_checker_light_rgb": VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB,
+    },
 }
 
 DEFAULT_MAZES = [MAZE_SIMPLE]

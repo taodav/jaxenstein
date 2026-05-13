@@ -9,6 +9,7 @@ from jes.objects import (
     KEY_COLOR_NONE,
     KEY_COLOR_RED,
     KEY_COLOR_YELLOW,
+    OBJECT_MEDKIT,
     door_wall_color_id,
 )
 from jes.render import (
@@ -149,6 +150,32 @@ def test_key_sprite_is_sparse_key_shape():
 
     assert int(jnp.sum(red_pixels)) > 0
     assert int(jnp.sum(red_pixels)) < 220
+
+
+def test_medkit_sprite_renders_white_pack_with_red_cross():
+    maze = parse_ascii_maze(
+        """
+        ######
+        #S..G#
+        ######
+        """
+    )
+
+    rgb = render_first_person(
+        maze.spawn_xy,
+        maze.spawn_theta,
+        maze.wall_grid,
+        maze.color_grid,
+        object_xy=jnp.asarray([[2.5, 1.5]], dtype=jnp.float32),
+        object_type=jnp.asarray([OBJECT_MEDKIT], dtype=jnp.int32),
+        object_color=jnp.asarray([KEY_COLOR_RED], dtype=jnp.int32),
+        object_active=jnp.asarray([True]),
+    )
+    white_pixels = (rgb[..., 0] > 220) & (rgb[..., 1] > 220) & (rgb[..., 2] > 200)
+    red_pixels = (rgb[..., 0] > 180) & (rgb[..., 1] < 80) & (rgb[..., 2] < 80)
+
+    assert int(jnp.sum(white_pixels)) > 0
+    assert int(jnp.sum(red_pixels)) > 0
 
 
 def test_closed_doors_render_with_color_coded_wall_ids():

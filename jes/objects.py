@@ -9,6 +9,7 @@ import jax.numpy as jnp
 OBJECT_NONE = 0
 OBJECT_GOAL = 1
 OBJECT_KEY = 2
+OBJECT_MEDKIT = 3
 
 KEY_COLOR_NONE = 0
 KEY_COLOR_RED = 1
@@ -62,7 +63,7 @@ OBJECT_EDGE_PALETTE_BY_COLOR = jnp.asarray(
     ],
     dtype=jnp.float32,
 )
-OBJECT_PICKUP_RADIUS = jnp.asarray([0.0, 0.35, 0.35], dtype=jnp.float32)
+OBJECT_PICKUP_RADIUS = jnp.asarray([0.0, 0.35, 0.35, 0.60], dtype=jnp.float32)
 DOOR_WALL_COLOR_IDS = jnp.asarray([0, 4, 5, 6], dtype=jnp.int32)
 DOOR_PANEL_WALL_COLOR_IDS = jnp.asarray([4, 5, 6], dtype=jnp.int32)
 DOOR_LOCKED_WALL_COLOR_OFFSET = 100

@@ -88,6 +88,21 @@ def test_parse_ascii_maze_pickup_objects():
     )
 
 
+def test_parse_ascii_maze_allows_optional_goal():
+    no_goal = parse_ascii_maze(
+        """
+        #####
+        #S..#
+        #####
+        """,
+        require_goal=False,
+    )
+
+    assert no_goal.object_xy.shape == (0, 2)
+    assert no_goal.object_type.shape == (0,)
+    assert jnp.allclose(no_goal.goal_xy, jnp.asarray([0.0, 0.0]))
+
+
 def test_parse_ascii_maze_multiple_goals():
     maze = parse_ascii_maze(
         """

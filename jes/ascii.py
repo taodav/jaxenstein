@@ -59,7 +59,9 @@ def _clean_ascii(ascii_maze: str) -> list[str]:
     return rows
 
 
-def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
+def parse_ascii_maze(
+    ascii_maze: str, *, wall_color_id: int = 1, require_goal: bool = True
+) -> Maze:
     """Parse an ASCII maze into JAX arrays.
 
     Cell centers use x/y coordinates where x is the column index + 0.5 and y
@@ -113,8 +115,14 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
 
     if not spawn_xy_options:
         raise ValueError("maze must contain at least one spawn")
-    if goal_xy is None:
+    if goal_xy is None and require_goal:
         raise ValueError("maze must contain at least one goal")
+    if goal_xy is None:
+        goal_xy = np.zeros((2,), dtype=np.float32)
+    if object_xy:
+        object_xy_array = np.stack(object_xy)
+    else:
+        object_xy_array = np.zeros((0, 2), dtype=np.float32)
 
     spawn_xy_array = np.stack(spawn_xy_options)
     return Maze(
@@ -125,7 +133,7 @@ def parse_ascii_maze(ascii_maze: str, *, wall_color_id: int = 1) -> Maze:
         spawn_count=jnp.asarray(len(spawn_xy_options), dtype=jnp.int32),
         spawn_theta=jnp.asarray(0.0, dtype=jnp.float32),
         goal_xy=jnp.asarray(goal_xy),
-        object_xy=jnp.asarray(np.stack(object_xy), dtype=jnp.float32),
+        object_xy=jnp.asarray(object_xy_array, dtype=jnp.float32),
         object_type=jnp.asarray(object_type, dtype=jnp.int32),
         object_color=jnp.asarray(object_color, dtype=jnp.int32),
         door_grid=jnp.asarray(door_grid),
@@ -232,5 +240,10 @@ def stack_mazes(mazes: list[Maze]) -> MazeBatch:
     )
 
 
-def parse_and_stack(ascii_mazes: list[str]) -> MazeBatch:
-    return stack_mazes([parse_ascii_maze(ascii_maze) for ascii_maze in ascii_mazes])
+def parse_and_stack(ascii_mazes: list[str], *, require_goal: bool = True) -> MazeBatch:
+    return stack_mazes(
+        [
+            parse_ascii_maze(ascii_maze, require_goal=require_goal)
+            for ascii_maze in ascii_mazes
+        ]
+    )

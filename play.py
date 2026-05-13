@@ -1,4 +1,4 @@
-"""Interactive keyboard player for the MAZE_SIMPLE renderer."""
+"""Interactive keyboard player for Jaxenstein environments."""
 
 from __future__ import annotations
 
@@ -23,10 +23,15 @@ from jes import (
     ACTION_MOVE_FORWARD,
     ACTION_TURN_LEFT,
     ACTION_TURN_RIGHT,
+    HealthGatheringEnv,
+    HealthGatheringState,
     RayMazeEnv,
     State,
 )
 from jes.maps import (
+    HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME,
+    HEALTH_GATHERING_MAPS_BY_NAME,
+    HEALTH_GATHERING_RENDER_KWARGS_BY_NAME,
     MAP_EPISODE_HORIZONS_BY_NAME,
     MAP_RENDER_KWARGS_BY_NAME,
     MAPS_BY_NAME,
@@ -55,13 +60,25 @@ class Player:
         render_size: tuple[int, int],
     ):
         render_w, render_h = render_size
-        self.env = RayMazeEnv.from_ascii(
-            [MAPS_BY_NAME[maze_name]],
-            episode_horizons=MAP_EPISODE_HORIZONS_BY_NAME.get(maze_name),
-            **MAP_RENDER_KWARGS_BY_NAME.get(maze_name, {}),
-            img_h=render_h,
-            img_w=render_w,
-        )
+        self.is_health_gathering = maze_name in HEALTH_GATHERING_MAPS_BY_NAME
+        if self.is_health_gathering:
+            self.env = HealthGatheringEnv.from_ascii(
+                [HEALTH_GATHERING_MAPS_BY_NAME[maze_name]],
+                episode_horizons=HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME.get(
+                    maze_name
+                ),
+                **HEALTH_GATHERING_RENDER_KWARGS_BY_NAME.get(maze_name, {}),
+                img_h=render_h,
+                img_w=render_w,
+            )
+        else:
+            self.env = RayMazeEnv.from_ascii(
+                [MAPS_BY_NAME[maze_name]],
+                episode_horizons=MAP_EPISODE_HORIZONS_BY_NAME.get(maze_name),
+                **MAP_RENDER_KWARGS_BY_NAME.get(maze_name, {}),
+                img_h=render_h,
+                img_w=render_w,
+            )
         self.scale = scale
         self.tick_ms = tick_ms
         self.record_path = record_path
@@ -121,7 +138,7 @@ class Player:
     def on_key_release(self, event: tk.Event) -> None:
         self.pressed_keys.discard(event.keysym.lower())
 
-    def _reset_env(self) -> tuple[jax.Array, State]:
+    def _reset_env(self) -> tuple[jax.Array, State | HealthGatheringState]:
         self.key, reset_key = jax.random.split(self.key)
         return self.reset_fn(reset_key)
 
@@ -165,7 +182,14 @@ class Player:
         )
         if self.episode_done_announced:
             return
-        if bool(reward):
+        if self.is_health_gathering and bool(done):
+            health = float(self.state.health)
+            print(
+                f"Episode done with health {health:.1f}. "
+                "Press R to restart, or Q/Escape to quit."
+            )
+            self.episode_done_announced = True
+        elif (not self.is_health_gathering) and bool(reward):
             print("Goal reached. Press R to restart, or Q/Escape to quit.")
             self.episode_done_announced = True
         elif bool(done):
@@ -298,7 +322,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--maze",
-        choices=sorted(MAPS_BY_NAME),
+        choices=sorted(MAPS_BY_NAME | HEALTH_GATHERING_MAPS_BY_NAME),
         default="simple",
         help="Maze to play.",
     )
@@ -308,10 +332,13 @@ def main() -> None:
     if args.tick_ms < 1:
         raise ValueError("--tick-ms must be at least 1")
 
-    print(
-        "Controls: hold W/S to move, hold A/D to turn, Space interact, "
-        "R reset, Q/Escape quit."
-    )
+    if args.maze in HEALTH_GATHERING_MAPS_BY_NAME:
+        print("Controls: hold W to move, hold A/D to turn, R reset, Q/Escape quit.")
+    else:
+        print(
+            "Controls: hold W/S to move, hold A/D to turn, Space interact, "
+            "R reset, Q/Escape quit."
+        )
     Player(
         args.maze,
         args.scale,

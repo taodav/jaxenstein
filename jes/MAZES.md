@@ -73,6 +73,36 @@ contains multiple `G` symbols, reset samples exactly one active goal candidate.
 Objects are stored in row-major ASCII order. Padded object slots use
 `OBJECT_NONE` when maps with different object counts are batched together.
 
+## ViZDoom Health Gathering
+
+`HealthGatheringEnv` implements the regular ViZDoom Health Gathering scenario
+as a separate environment class. Its state includes `health`, `medkit_xy`,
+`medkit_active`, and medkit spawn bookkeeping instead of adding those fields to
+the navigation `State`.
+
+The bundled ViZDoom scenario uses a rectangular 1216x1216 Doom-unit room with
+gray `GSTONE1` walls, a green `NUKAGE1` acidic floor, the player at the center,
+16 initial medkits, one new medkit every 30 tics, +1 living reward, 100 death
+penalty, and 2100 tic timeout. Jaxenstein mirrors those values in
+`MAZE_HEALTH_GATHERING` and `HealthGatheringEnv`.
+
+```python
+import jax
+
+from jes import ACTION_MOVE_FORWARD, HealthGatheringEnv
+from jes.maps import MAZE_HEALTH_GATHERING
+
+env = HealthGatheringEnv.from_ascii([MAZE_HEALTH_GATHERING])
+obs, state = env.reset(jax.random.key(0))
+obs, state, reward, done, info = env.step(state, ACTION_MOVE_FORWARD)
+```
+
+Interactive play:
+
+```bash
+uv run python play.py --maze health-gathering
+```
+
 ## Actions
 
 ```python
