@@ -1,5 +1,5 @@
 <p align="center">
- <img width="80%" src="images/jaxenstein.png" />
+ <img width="80%" src="media/jaxenstein.png" />
 </p>
 
 # JAXenstein
@@ -9,6 +9,10 @@ First-person maze environments in JAX.
 Features: ASCII maps, RGB raycast observations, billboard sprites, colored keys
 and doors, sparse goal rewards, ViZDoom-style health survival, and
 JIT/vmap-friendly environment steps.
+
+<p align="center">
+ <img width="99%" src="media/gifs/combined.gif" />
+</p>
 
 ## Install
 
@@ -108,9 +112,6 @@ obs, states = jax.vmap(env.reset)(keys)
 actions = jnp.full((8,), ACTION_MOVE_FORWARD, dtype=jnp.int32)
 obs, states, reward, done, info = jax.vmap(env.step)(states, actions)
 ```
-
-If an environment batch contains multiple maps, `reset(key)` samples one from
-the key.
 
 Health Gathering has a separate state with a `health` variable and medkit slots,
 so navigation tasks keep their smaller `State`:
