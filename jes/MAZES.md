@@ -45,13 +45,11 @@ rows are padded with walls when maps are stacked into a batch.
 | space | floor |
 | `S` | spawn candidate |
 | `G` | yellow goal candidate |
-| `K` | red key |
 | `r` | red key |
 | `b` | blue key |
 | `y` | yellow key |
 | `"` | blue unlocked door |
 | `\` | yellow unlocked door |
-| `D` | red-locked door |
 | `R` | red-locked door |
 | `B` | blue-locked door |
 | `Y` | yellow-locked door |

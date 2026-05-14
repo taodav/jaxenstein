@@ -355,7 +355,7 @@ def test_pickup_object_deactivates_without_done():
         [
             """
             #####
-            #SKG#
+            #SrG#
             #####
             """
         ]

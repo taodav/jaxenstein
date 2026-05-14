@@ -76,7 +76,7 @@ def test_parse_ascii_maze_pickup_objects():
     maze = parse_ascii_maze(
         """
         #####
-        #SKG#
+        #SrG#
         #####
         """
     )
@@ -205,7 +205,7 @@ def test_stack_mazes_pads_objects_with_none():
     two_objects = parse_ascii_maze(
         """
         #####
-        #SKG#
+        #SrG#
         #####
         """
     )
