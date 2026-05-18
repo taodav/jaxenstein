@@ -7,8 +7,8 @@
 First-person maze environments in JAX.
 
 Features: ASCII maps, RGB raycast observations, billboard sprites, colored keys
-and doors, sparse goal rewards, ViZDoom-style health survival, and
-JIT/vmap-friendly environment steps.
+and doors, sparse goal rewards, health survival, and JIT/vmap-friendly
+environment steps.
 
 <p align="center">
  <img width="99%" src="media/gifs/combined.gif" />
@@ -41,10 +41,10 @@ Use an ID with `play.py --maze {ID}`. Navigation maps live in
 | Basic | Simple | `simple` | Small navigation task with one start and one goal. |
 | Basic | Key-door | `key-door` | Collect a red key, open a red door, reach the goal. |
 | MiniGrid | KeyCorridorS4R3 | `key-corridor` | 3-by-3 room key corridor with colored doors and a locked goal room. |
-| ViZDoom | Health Gathering | `health-gathering` | Survive an acidic room by collecting medkits. |
-| ViZDoom | My Way Home | `my-way-home` | Large maze with many starts, colored walls, and one goal. |
+| Health | Health Gathering | `health-gathering` | Survive an acidic room by collecting medkits. |
+| Maze | My Way Home | `my-way-home` | Large maze with many starts, colored walls, and one goal. |
 | DMLab | Static goal | `dmlab-static-{01,02,03}` | Fixed-goal mazes; `01` small, `02` medium, `03` large. |
-| DMLab | Random goal | `dmlab-random-goal-{01,02,03}` | Same sizes; one goal candidate is active each episode. |
+| DMLab | Random goal | `dmlab-random-{01,02,03}` | Same sizes; one goal candidate is active each episode. |
 
 ## Scripts
 
@@ -66,8 +66,8 @@ Options:
 | `--record [PATH]` | Save a GIF. Default path is `trajectory.gif`. |
 
 Navigation controls: `W/S` move, `A/D` turn, `Space` interact, `R` reset,
-`Q` or `Escape` quit. Health Gathering uses the ViZDoom action set: `W` move
-forward and `A/D` turn.
+`Q` or `Escape` quit. Health Gathering uses `W` to move forward and `A/D` to
+turn.
 
 ### `scripts/compare_raycast_speed.py`
 

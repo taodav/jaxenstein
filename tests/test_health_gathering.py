@@ -16,21 +16,21 @@ from jes.maps import (
     HEALTH_GATHERING_REWARD_KWARGS_BY_NAME,
     MAZE_HEALTH_GATHERING,
     MAZE_SIMPLE,
-    VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE,
-    VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE_INTERVAL,
-    VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY,
-    VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT,
-    VIZDOOM_HEALTH_GATHERING_INITIAL_HEALTH,
-    VIZDOOM_HEALTH_GATHERING_INITIAL_MEDKITS,
-    VIZDOOM_HEALTH_GATHERING_LIVING_REWARD,
-    VIZDOOM_HEALTH_GATHERING_MAX_MEDKITS,
-    VIZDOOM_HEALTH_GATHERING_MEDKIT_HEAL,
-    VIZDOOM_HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
-    VIZDOOM_HEALTH_GATHERING_WALL_RGB,
+    HEALTH_GATHERING_ACID_DAMAGE,
+    HEALTH_GATHERING_ACID_DAMAGE_INTERVAL,
+    HEALTH_GATHERING_DEATH_PENALTY,
+    HEALTH_GATHERING_EPISODE_TIMEOUT,
+    HEALTH_GATHERING_INITIAL_HEALTH,
+    HEALTH_GATHERING_INITIAL_MEDKITS,
+    HEALTH_GATHERING_LIVING_REWARD,
+    HEALTH_GATHERING_MAX_MEDKITS,
+    HEALTH_GATHERING_MEDKIT_HEAL,
+    HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
+    HEALTH_GATHERING_WALL_RGB,
 )
 
 
-def test_health_gathering_reset_uses_separate_health_state_and_vizdoom_specs():
+def test_health_gathering_reset_uses_separate_health_state_and_defaults():
     env = HealthGatheringEnv.from_ascii([MAZE_HEALTH_GATHERING])
     nav_env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
 
@@ -40,18 +40,18 @@ def test_health_gathering_reset_uses_separate_health_state_and_vizdoom_specs():
     assert obs.shape == (64, 64, 3)
     assert obs.dtype == jnp.uint8
     assert env.num_actions == HEALTH_GATHERING_NUM_ACTIONS
-    assert int(env.episode_horizons[0]) == VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT
-    assert float(state.health) == VIZDOOM_HEALTH_GATHERING_INITIAL_HEALTH
-    assert int(jnp.sum(state.medkit_active)) == VIZDOOM_HEALTH_GATHERING_INITIAL_MEDKITS
-    assert state.medkit_xy.shape == (VIZDOOM_HEALTH_GATHERING_MAX_MEDKITS, 2)
+    assert int(env.episode_horizons[0]) == HEALTH_GATHERING_EPISODE_TIMEOUT
+    assert float(state.health) == HEALTH_GATHERING_INITIAL_HEALTH
+    assert int(jnp.sum(state.medkit_active)) == HEALTH_GATHERING_INITIAL_MEDKITS
+    assert state.medkit_xy.shape == (HEALTH_GATHERING_MAX_MEDKITS, 2)
     assert not hasattr(nav_state, "health")
     assert not hasattr(state, "carried_keys")
 
     assert HEALTH_GATHERING_MAPS_BY_NAME["health-gathering"] == MAZE_HEALTH_GATHERING
     assert HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME["health-gathering"] == 2100
     assert HEALTH_GATHERING_REWARD_KWARGS_BY_NAME["health-gathering"] == {
-        "living_reward": VIZDOOM_HEALTH_GATHERING_LIVING_REWARD,
-        "death_penalty": VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY,
+        "living_reward": HEALTH_GATHERING_LIVING_REWARD,
+        "death_penalty": HEALTH_GATHERING_DEATH_PENALTY,
     }
     assert HEALTH_GATHERING_RENDER_KWARGS_BY_NAME["health-gathering"][
         "floor_rgb"
@@ -62,7 +62,7 @@ def test_health_gathering_reset_uses_separate_health_state_and_vizdoom_specs():
     wall_rgb = HEALTH_GATHERING_RENDER_KWARGS_BY_NAME["health-gathering"][
         "color_palette"
     ][1]
-    assert wall_rgb == VIZDOOM_HEALTH_GATHERING_WALL_RGB
+    assert wall_rgb == HEALTH_GATHERING_WALL_RGB
     assert wall_rgb[0] == wall_rgb[1]
     assert wall_rgb[1] >= wall_rgb[2]
 
@@ -84,10 +84,10 @@ def test_health_gathering_medkit_pickup_heals_and_deactivates():
     assert bool(
         jnp.isclose(
             next_state.health,
-            50.0 + VIZDOOM_HEALTH_GATHERING_MEDKIT_HEAL,
+            50.0 + HEALTH_GATHERING_MEDKIT_HEAL,
         )
     )
-    assert float(reward) == VIZDOOM_HEALTH_GATHERING_LIVING_REWARD
+    assert float(reward) == HEALTH_GATHERING_LIVING_REWARD
     assert not bool(done)
 
 
@@ -112,7 +112,7 @@ def test_health_gathering_acid_damage_can_kill_with_death_penalty():
     assert bool(info["died"])
     assert float(next_state.health) == 0.0
     assert float(info["acid_damage"]) == 8.0
-    assert float(reward) == -VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY
+    assert float(reward) == -HEALTH_GATHERING_DEATH_PENALTY
 
 
 def test_health_gathering_spawns_new_medkit_every_interval():
@@ -147,7 +147,7 @@ def test_health_gathering_movement_collision_and_periodic_damage_defaults():
         theta=jnp.asarray(jnp.pi, dtype=jnp.float32),
     )
     near_damage_tick = state.replace(
-        t=jnp.asarray(VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE_INTERVAL - 1),
+        t=jnp.asarray(HEALTH_GATHERING_ACID_DAMAGE_INTERVAL - 1),
         medkit_active=jnp.zeros((env.max_medkits,), dtype=jnp.bool_),
     )
 
@@ -155,15 +155,15 @@ def test_health_gathering_movement_collision_and_periodic_damage_defaults():
     _, damaged_state, _, _, info = env.step(near_damage_tick, ACTION_TURN_LEFT)
 
     assert jnp.allclose(blocked_state.pos, wall_facing_state.pos)
-    assert float(info["acid_damage"]) == VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE
+    assert float(info["acid_damage"]) == HEALTH_GATHERING_ACID_DAMAGE
     assert bool(
         jnp.isclose(
             damaged_state.health,
-            VIZDOOM_HEALTH_GATHERING_INITIAL_HEALTH
-            - VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE,
+            HEALTH_GATHERING_INITIAL_HEALTH
+            - HEALTH_GATHERING_ACID_DAMAGE,
         )
     )
-    assert VIZDOOM_HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL == 30
+    assert HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL == 30
 
 
 def test_health_gathering_step_jit_and_vmap():

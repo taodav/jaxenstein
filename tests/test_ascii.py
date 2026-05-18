@@ -245,35 +245,6 @@ def test_stack_mazes_pads_spawn_options():
     assert jnp.allclose(batch.spawn_xy_options[1, 1], jnp.asarray([3.5, 1.5]))
 
 
-def test_my_way_home_map_has_vizdoom_footprint():
-    rows = MAZE_MY_WAY_HOME_COLORLESS.strip().splitlines()
-    starts = [
-        (row_idx, col_idx)
-        for row_idx, row in enumerate(rows)
-        for col_idx, char in enumerate(row)
-        if char == "S"
-    ]
-    goal = next(
-        (row_idx, col_idx)
-        for row_idx, row in enumerate(rows)
-        for col_idx, char in enumerate(row)
-        if char == "G"
-    )
-
-    maze = parse_ascii_maze(MAZE_MY_WAY_HOME_COLORLESS)
-
-    assert maze.wall_grid.shape == (28, 32)
-    assert len({len(row) for row in rows}) == 1
-    assert len(starts) == 17
-    assert int(maze.spawn_count) == 17
-    assert maze.spawn_xy_options.shape == (17, 2)
-    assert jnp.any(
-        jnp.all(maze.spawn_xy_options == jnp.asarray([10.5, 3.5]), axis=1)
-    )
-    assert jnp.allclose(maze.goal_xy, jnp.asarray([28.5, 16.5]))
-    assert all(goal in _reachable_cells(rows, start) for start in starts)
-
-
 def test_key_corridor_requires_key_before_locked_goal():
     rows = MAZE_KEY_CORRIDOR.strip().splitlines()
     start = next(

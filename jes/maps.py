@@ -44,22 +44,22 @@ MAZE_T = """
 ###########
 """
 
-VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT = 2100
-VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT = 2100
-VIZDOOM_HEALTH_GATHERING_LIVING_REWARD = 1.0
-VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY = 100.0
-VIZDOOM_HEALTH_GATHERING_INITIAL_HEALTH = 100.0
-VIZDOOM_HEALTH_GATHERING_MAX_HEALTH = 100.0
-VIZDOOM_HEALTH_GATHERING_MEDKIT_HEAL = 25.0
-VIZDOOM_HEALTH_GATHERING_INITIAL_MEDKITS = 16
-VIZDOOM_HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL = 30
-VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE = 8.0
-VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE_INTERVAL = 35
-VIZDOOM_HEALTH_GATHERING_MAX_MEDKITS = 96
-VIZDOOM_HEALTH_GATHERING_WALL_RGB = [118, 118, 112]
-VIZDOOM_HEALTH_GATHERING_FLOOR_RGB = [32, 112, 28]
-VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB = [22, 76, 26]
-VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB = [76, 150, 44]
+MY_WAY_HOME_EPISODE_TIMEOUT = 2100
+HEALTH_GATHERING_EPISODE_TIMEOUT = 2100
+HEALTH_GATHERING_LIVING_REWARD = 1.0
+HEALTH_GATHERING_DEATH_PENALTY = 100.0
+HEALTH_GATHERING_INITIAL_HEALTH = 100.0
+HEALTH_GATHERING_MAX_HEALTH = 100.0
+HEALTH_GATHERING_MEDKIT_HEAL = 25.0
+HEALTH_GATHERING_INITIAL_MEDKITS = 16
+HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL = 30
+HEALTH_GATHERING_ACID_DAMAGE = 8.0
+HEALTH_GATHERING_ACID_DAMAGE_INTERVAL = 35
+HEALTH_GATHERING_MAX_MEDKITS = 96
+HEALTH_GATHERING_WALL_RGB = [118, 118, 112]
+HEALTH_GATHERING_FLOOR_RGB = [32, 112, 28]
+HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB = [22, 76, 26]
+HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB = [76, 150, 44]
 
 
 def _rectangle_map(width: int, height: int, spawn_col: int, spawn_row: int) -> str:
@@ -76,9 +76,8 @@ def _rectangle_map(width: int, height: int, spawn_col: int, spawn_row: int) -> s
     return "\n".join(rows)
 
 
-# ViZDoom's health_gathering.wad is a 1216x1216 Doom-unit rectangle with the
-# player at (608, 608). Using 32 Doom units per cell gives a 38-cell play area
-# plus a one-cell wall border.
+# The health-gathering room uses a 38-cell play area plus a one-cell wall
+# border, with the player spawning at the center.
 MAZE_HEALTH_GATHERING = _rectangle_map(width=40, height=40, spawn_col=19, spawn_row=19)
 
 # Convert DMLab seconds to a Doom-like 30 Hz step budget.
@@ -99,9 +98,9 @@ DMLAB_NAV_MAZE_03_MAX_STEPS = (
 DEFAULT_GOAL_REWARD = 1.0
 DEFAULT_LIVING_REWARD = 0.0
 DEFAULT_DISCOUNT_GAMMA = 0.99
-VIZDOOM_MY_WAY_HOME_GOAL_REWARD = 1.0
-VIZDOOM_MY_WAY_HOME_LIVING_REWARD = -0.0001
-VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA = 0.999
+MY_WAY_HOME_GOAL_REWARD = 1.0
+MY_WAY_HOME_LIVING_REWARD = -0.0001
+MY_WAY_HOME_DISCOUNT_GAMMA = 0.999
 DMLAB_GOAL_REWARD = 10.0
 DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA = 0.999
 DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA = 0.9995
@@ -176,10 +175,9 @@ DMLAB_RENDER_KWARGS_BY_INDEX = {
     },
 }
 
-# ViZDoom's My Way Home footprint, rasterized from the bundled UDMF WAD at
-# 32 Doom units per cell. The 17 original spawn map points are represented as
-# multiple S cells and are sampled uniformly by RayMazeEnv.reset. Digits are
-# static wall cells colored from nearby UDMF linedef textures.
+# My Way Home footprint with 17 spawn map points represented as multiple S
+# cells and sampled uniformly by RayMazeEnv.reset. Digits are static wall cells
+# with stable palette colors.
 MAZE_MY_WAY_HOME = """
 99999999999999999999999999999999
 91333333.....35.....599997.....9
@@ -399,8 +397,8 @@ HEALTH_GATHERING_MAPS_BY_NAME = {
 
 HEALTH_GATHERING_REWARD_KWARGS_BY_NAME = {
     "health-gathering": {
-        "living_reward": VIZDOOM_HEALTH_GATHERING_LIVING_REWARD,
-        "death_penalty": VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY,
+        "living_reward": HEALTH_GATHERING_LIVING_REWARD,
+        "death_penalty": HEALTH_GATHERING_DEATH_PENALTY,
     },
 }
 
@@ -418,12 +416,12 @@ MAP_REWARD_KWARGS_BY_NAME = {
         "living_reward": DEFAULT_LIVING_REWARD,
     },
     "my-way-home": {
-        "goal_reward": VIZDOOM_MY_WAY_HOME_GOAL_REWARD,
-        "living_reward": VIZDOOM_MY_WAY_HOME_LIVING_REWARD,
+        "goal_reward": MY_WAY_HOME_GOAL_REWARD,
+        "living_reward": MY_WAY_HOME_LIVING_REWARD,
     },
     "my-way-home-colorless": {
-        "goal_reward": VIZDOOM_MY_WAY_HOME_GOAL_REWARD,
-        "living_reward": VIZDOOM_MY_WAY_HOME_LIVING_REWARD,
+        "goal_reward": MY_WAY_HOME_GOAL_REWARD,
+        "living_reward": MY_WAY_HOME_LIVING_REWARD,
     },
     "dmlab-static-01": {
         "goal_reward": DMLAB_GOAL_REWARD,
@@ -455,8 +453,8 @@ MAP_DISCOUNT_GAMMAS_BY_NAME = {
     "simple": DEFAULT_DISCOUNT_GAMMA,
     "key-door": DEFAULT_DISCOUNT_GAMMA,
     "key-corridor": DEFAULT_DISCOUNT_GAMMA,
-    "my-way-home": VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA,
-    "my-way-home-colorless": VIZDOOM_MY_WAY_HOME_DISCOUNT_GAMMA,
+    "my-way-home": MY_WAY_HOME_DISCOUNT_GAMMA,
+    "my-way-home-colorless": MY_WAY_HOME_DISCOUNT_GAMMA,
     "dmlab-static-01": DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA,
     "dmlab-random-01": DMLAB_NAV_MAZE_01_DISCOUNT_GAMMA,
     "dmlab-static-02": DMLAB_NAV_MAZE_02_DISCOUNT_GAMMA,
@@ -467,8 +465,8 @@ MAP_DISCOUNT_GAMMAS_BY_NAME = {
 
 MAP_EPISODE_HORIZONS_BY_NAME = {
     "key-corridor": MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS,
-    "my-way-home": VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
-    "my-way-home-colorless": VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
+    "my-way-home": MY_WAY_HOME_EPISODE_TIMEOUT,
+    "my-way-home-colorless": MY_WAY_HOME_EPISODE_TIMEOUT,
     "dmlab-static-01": DMLAB_NAV_MAZE_01_MAX_STEPS,
     "dmlab-static-02": DMLAB_NAV_MAZE_02_MAX_STEPS,
     "dmlab-static-03": DMLAB_NAV_MAZE_03_MAX_STEPS,
@@ -478,7 +476,7 @@ MAP_EPISODE_HORIZONS_BY_NAME = {
 }
 
 HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME = {
-    "health-gathering": VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT,
+    "health-gathering": HEALTH_GATHERING_EPISODE_TIMEOUT,
 }
 
 MAP_RENDER_KWARGS_BY_NAME = {
@@ -494,16 +492,16 @@ HEALTH_GATHERING_RENDER_KWARGS_BY_NAME = {
     "health-gathering": {
         "color_palette": [
             [150, 150, 150],
-            VIZDOOM_HEALTH_GATHERING_WALL_RGB,
+            HEALTH_GATHERING_WALL_RGB,
             [74, 166, 104],
             [78, 120, 206],
             [236, 44, 36],
             [48, 126, 255],
             [255, 212, 38],
         ],
-        "floor_rgb": VIZDOOM_HEALTH_GATHERING_FLOOR_RGB,
-        "floor_checker_dark_rgb": VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB,
-        "floor_checker_light_rgb": VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB,
+        "floor_rgb": HEALTH_GATHERING_FLOOR_RGB,
+        "floor_checker_dark_rgb": HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB,
+        "floor_checker_light_rgb": HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB,
     },
 }
 

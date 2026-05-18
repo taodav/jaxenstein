@@ -1,4 +1,4 @@
-"""ViZDoom-style Health Gathering environment."""
+"""Health Gathering environment."""
 
 from __future__ import annotations
 
@@ -11,21 +11,21 @@ import numpy as np
 
 from jes.ascii import Maze, MazeBatch, parse_and_stack, stack_mazes
 from jes.maps import (
-    VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE,
-    VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE_INTERVAL,
-    VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY,
-    VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT,
-    VIZDOOM_HEALTH_GATHERING_INITIAL_HEALTH,
-    VIZDOOM_HEALTH_GATHERING_INITIAL_MEDKITS,
-    VIZDOOM_HEALTH_GATHERING_LIVING_REWARD,
-    VIZDOOM_HEALTH_GATHERING_MAX_HEALTH,
-    VIZDOOM_HEALTH_GATHERING_MAX_MEDKITS,
-    VIZDOOM_HEALTH_GATHERING_MEDKIT_HEAL,
-    VIZDOOM_HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
-    VIZDOOM_HEALTH_GATHERING_WALL_RGB,
-    VIZDOOM_HEALTH_GATHERING_FLOOR_RGB,
-    VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB,
-    VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB,
+    HEALTH_GATHERING_ACID_DAMAGE,
+    HEALTH_GATHERING_ACID_DAMAGE_INTERVAL,
+    HEALTH_GATHERING_DEATH_PENALTY,
+    HEALTH_GATHERING_EPISODE_TIMEOUT,
+    HEALTH_GATHERING_INITIAL_HEALTH,
+    HEALTH_GATHERING_INITIAL_MEDKITS,
+    HEALTH_GATHERING_LIVING_REWARD,
+    HEALTH_GATHERING_MAX_HEALTH,
+    HEALTH_GATHERING_MAX_MEDKITS,
+    HEALTH_GATHERING_MEDKIT_HEAL,
+    HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
+    HEALTH_GATHERING_WALL_RGB as _WALL_RGB,
+    HEALTH_GATHERING_FLOOR_RGB as _FLOOR_RGB,
+    HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB as _FLOOR_CHECKER_DARK_RGB,
+    HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB as _FLOOR_CHECKER_LIGHT_RGB,
 )
 from jes.objects import KEY_COLOR_RED, OBJECT_MEDKIT, object_pickup_radius
 from jes.render import (
@@ -40,16 +40,14 @@ HEALTH_GATHERING_ACTION_MOVE_FORWARD = 2
 HEALTH_GATHERING_NUM_ACTIONS = 3
 
 HEALTH_GATHERING_WALL_PALETTE = DEFAULT_WALL_PALETTE.at[1].set(
-    jnp.asarray(VIZDOOM_HEALTH_GATHERING_WALL_RGB, dtype=jnp.float32)
+    jnp.asarray(_WALL_RGB, dtype=jnp.float32)
 )
-HEALTH_GATHERING_FLOOR_RGB = jnp.asarray(
-    VIZDOOM_HEALTH_GATHERING_FLOOR_RGB, dtype=jnp.float32
-)
+HEALTH_GATHERING_FLOOR_RGB = jnp.asarray(_FLOOR_RGB, dtype=jnp.float32)
 HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB = jnp.asarray(
-    VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB, dtype=jnp.float32
+    _FLOOR_CHECKER_DARK_RGB, dtype=jnp.float32
 )
 HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB = jnp.asarray(
-    VIZDOOM_HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB, dtype=jnp.float32
+    _FLOOR_CHECKER_LIGHT_RGB, dtype=jnp.float32
 )
 
 
@@ -77,17 +75,17 @@ class HealthGatheringParams:
     )
     initial_health: jax.Array = struct.field(
         default_factory=lambda: jnp.asarray(
-            VIZDOOM_HEALTH_GATHERING_INITIAL_HEALTH, dtype=jnp.float32
+            HEALTH_GATHERING_INITIAL_HEALTH, dtype=jnp.float32
         )
     )
     max_health: jax.Array = struct.field(
         default_factory=lambda: jnp.asarray(
-            VIZDOOM_HEALTH_GATHERING_MAX_HEALTH, dtype=jnp.float32
+            HEALTH_GATHERING_MAX_HEALTH, dtype=jnp.float32
         )
     )
     medkit_heal: jax.Array = struct.field(
         default_factory=lambda: jnp.asarray(
-            VIZDOOM_HEALTH_GATHERING_MEDKIT_HEAL, dtype=jnp.float32
+            HEALTH_GATHERING_MEDKIT_HEAL, dtype=jnp.float32
         )
     )
     medkit_radius: jax.Array = struct.field(
@@ -97,28 +95,28 @@ class HealthGatheringParams:
     )
     acid_damage: jax.Array = struct.field(
         default_factory=lambda: jnp.asarray(
-            VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE, dtype=jnp.float32
+            HEALTH_GATHERING_ACID_DAMAGE, dtype=jnp.float32
         )
     )
     acid_damage_interval: jax.Array = struct.field(
         default_factory=lambda: jnp.asarray(
-            VIZDOOM_HEALTH_GATHERING_ACID_DAMAGE_INTERVAL, dtype=jnp.int32
+            HEALTH_GATHERING_ACID_DAMAGE_INTERVAL, dtype=jnp.int32
         )
     )
     living_reward: jax.Array = struct.field(
         default_factory=lambda: jnp.asarray(
-            VIZDOOM_HEALTH_GATHERING_LIVING_REWARD, dtype=jnp.float32
+            HEALTH_GATHERING_LIVING_REWARD, dtype=jnp.float32
         )
     )
     death_penalty: jax.Array = struct.field(
         default_factory=lambda: jnp.asarray(
-            VIZDOOM_HEALTH_GATHERING_DEATH_PENALTY, dtype=jnp.float32
+            HEALTH_GATHERING_DEATH_PENALTY, dtype=jnp.float32
         )
     )
 
 
 class HealthGatheringEnv:
-    """A JAX-native approximation of ViZDoom Health Gathering."""
+    """A JAX-native Health Gathering task."""
 
     def __init__(
         self,
@@ -126,9 +124,9 @@ class HealthGatheringEnv:
         *,
         params: HealthGatheringParams | None = None,
         episode_horizons: Sequence[int] | jax.Array | int | None = None,
-        initial_medkit_count: int = VIZDOOM_HEALTH_GATHERING_INITIAL_MEDKITS,
-        medkit_spawn_interval: int = VIZDOOM_HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
-        max_medkits: int = VIZDOOM_HEALTH_GATHERING_MAX_MEDKITS,
+        initial_medkit_count: int = HEALTH_GATHERING_INITIAL_MEDKITS,
+        medkit_spawn_interval: int = HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
+        max_medkits: int = HEALTH_GATHERING_MAX_MEDKITS,
         img_h: int = 64,
         img_w: int = 64,
         fov: float = jnp.pi / 3.0,
@@ -180,7 +178,7 @@ class HealthGatheringEnv:
             episode_horizons,
             num_mazes=int(maze_batch.wall_grids.shape[0]),
             default_horizon=jnp.asarray(
-                VIZDOOM_HEALTH_GATHERING_EPISODE_TIMEOUT, dtype=jnp.int32
+                HEALTH_GATHERING_EPISODE_TIMEOUT, dtype=jnp.int32
             ),
         )
         self.floor_xy_options, self.floor_counts = _floor_options(maze_batch)

@@ -104,9 +104,9 @@ def test_generated_dmlab_nav_maze_maps_parse_and_are_registered():
         "dmlab-static-01": DMLAB_NAV_MAZE_STATIC_01,
         "dmlab-static-02": DMLAB_NAV_MAZE_STATIC_02,
         "dmlab-static-03": DMLAB_NAV_MAZE_STATIC_03,
-        "dmlab-random-goal-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
-        "dmlab-random-goal-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
-        "dmlab-random-goal-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
+        "dmlab-random-01": DMLAB_NAV_MAZE_RANDOM_GOAL_01,
+        "dmlab-random-02": DMLAB_NAV_MAZE_RANDOM_GOAL_02,
+        "dmlab-random-03": DMLAB_NAV_MAZE_RANDOM_GOAL_03,
     }
 
     for name, ascii_map in dmlab_maps.items():
@@ -128,7 +128,7 @@ def test_dmlab_render_kwargs_match_maze_color_schemes():
 
     for index, floor_rgb in floor_by_index.items():
         static = MAP_RENDER_KWARGS_BY_NAME[f"dmlab-static-{index}"]
-        random_goal = MAP_RENDER_KWARGS_BY_NAME[f"dmlab-random-goal-{index}"]
+        random_goal = MAP_RENDER_KWARGS_BY_NAME[f"dmlab-random-{index}"]
 
         assert static == random_goal
         assert static["floor_rgb"] == floor_rgb

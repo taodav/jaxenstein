@@ -24,10 +24,8 @@ from jes.maps import (
     MAP_REWARD_KWARGS_BY_NAME,
     MAPS_BY_NAME,
     MAZE_KEY_CORRIDOR,
-    MAZE_MY_WAY_HOME,
     MAZE_SIMPLE,
     MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS,
-    VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT,
 )
 from jes.objects import (
     DOOR_UNLOCKED,
@@ -105,7 +103,7 @@ def test_named_reward_and_gamma_specs_match_reference_tasks():
         "goal_reward": 10.0,
         "living_reward": 0.0,
     }
-    assert MAP_REWARD_KWARGS_BY_NAME["dmlab-random-goal-03"] == {
+    assert MAP_REWARD_KWARGS_BY_NAME["dmlab-random-03"] == {
         "goal_reward": 10.0,
         "living_reward": 0.0,
     }
@@ -254,18 +252,6 @@ def test_episode_horizons_can_vary_by_maze():
     assert bool(long_state.done)
 
 
-def test_my_way_home_horizon_matches_vizdoom_timeout():
-    env = RayMazeEnv.from_ascii(
-        [MAZE_MY_WAY_HOME],
-        episode_horizons=[
-            MAP_EPISODE_HORIZONS_BY_NAME["my-way-home"],
-        ],
-    )
-
-    assert VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT == 2100
-    assert int(env.episode_horizons[0]) == VIZDOOM_MY_WAY_HOME_EPISODE_TIMEOUT
-
-
 def test_key_corridor_is_registered_with_minigrid_horizon():
     env = RayMazeEnv.from_ascii(
         [MAPS_BY_NAME["key-corridor"]],
@@ -306,9 +292,9 @@ def test_dmlab_nav_maze_horizons_match_source_frame_steps():
     assert DMLAB_NAV_MAZE_02_MAX_STEPS == 4500
     assert DMLAB_NAV_MAZE_03_MAX_STEPS == 9000
     assert env.episode_horizons.tolist() == [1800, 4500, 9000]
-    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-goal-01"] == 1800
-    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-goal-02"] == 4500
-    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-goal-03"] == 9000
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-01"] == 1800
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-02"] == 4500
+    assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-03"] == 9000
 
 
 def test_forward_collision_noops_at_wall():

@@ -71,18 +71,16 @@ contains multiple `G` symbols, reset samples exactly one active goal candidate.
 Objects are stored in row-major ASCII order. Padded object slots use
 `OBJECT_NONE` when maps with different object counts are batched together.
 
-## ViZDoom Health Gathering
+## Health Gathering
 
-`HealthGatheringEnv` implements the regular ViZDoom Health Gathering scenario
-as a separate environment class. Its state includes `health`, `medkit_xy`,
-`medkit_active`, and medkit spawn bookkeeping instead of adding those fields to
-the navigation `State`.
+`HealthGatheringEnv` implements the health-survival task as a separate
+environment class. Its state includes `health`, `medkit_xy`, `medkit_active`,
+and medkit spawn bookkeeping instead of adding those fields to the navigation
+`State`.
 
-The bundled ViZDoom scenario uses a rectangular 1216x1216 Doom-unit room with
-gray `GSTONE1` walls, a green `NUKAGE1` acidic floor, the player at the center,
-16 initial medkits, one new medkit every 30 tics, +1 living reward, 100 death
-penalty, and 2100 tic timeout. Jaxenstein mirrors those values in
-`MAZE_HEALTH_GATHERING` and `HealthGatheringEnv`.
+The default task uses a square acidic room with gray walls, a green floor, the
+player at the center, 16 initial medkits, one new medkit every 30 steps, +1
+living reward, 100 death penalty, and a 2100-step timeout.
 
 ```python
 import jax
@@ -156,13 +154,18 @@ configuration is
 uv run python play.py --maze key-corridor
 ```
 
-## ViZDoom My Way Home
+## My Way Home
 
-`jes.maps.MAZE_MY_WAY_HOME` is a rasterized version of ViZDoom's bundled My Way Home map. The footprint is converted from the UDMF WAD at 32 Doom units per ASCII cell, with the green vest represented by `G` and the original 17 spawn map points represented by `S`.
+`jes.maps.MAZE_MY_WAY_HOME` is a large fixed map with 17 spawn points
+represented by `S` cells and one goal represented by `G`.
 
-The default `my-way-home` variant uses digit wall symbols to approximate the original WAD texture colors. `my-way-home-colorless` uses the same topology with default `#` walls. The renderer uses a checker floor pattern and taller walls by default for all maps.
+The default `my-way-home` variant uses digit wall symbols for colored wall
+regions. `my-way-home-colorless` uses the same topology with default `#` walls.
+The renderer uses a checker floor pattern and taller walls by default for all
+maps.
 
-ViZDoom's bundled `my_way_home.cfg` sets `episode_timeout = 2100`. Jaxenstein mirrors that in `MAP_EPISODE_HORIZONS_BY_NAME`, and `play.py` passes that horizon automatically.
+`MAP_EPISODE_HORIZONS_BY_NAME` gives My Way Home a 2100-step timeout, and
+`play.py` passes that horizon automatically.
 
 ```bash
 uv run python play.py --maze my-way-home
