@@ -35,11 +35,6 @@ Homepage = "https://github.com/taodav/jaxenstein"
 Repository = "https://github.com/taodav/jaxenstein"
 Issues = "https://github.com/taodav/jaxenstein/issues"
 
-[project.scripts]
-jaxenstein-play = "jaxenstein.play:main"
-jaxenstein-compare-raycast-speed = "jaxenstein.scripts.compare_raycast_speed:main"
-jaxenstein-convert-dmlab-map = "jaxenstein.scripts.convert_dmlab_map:main"
-
 [project.optional-dependencies]
 cuda12 = [
     "jax[cuda12]>=0.6.2; sys_platform == 'linux'",
