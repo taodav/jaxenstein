@@ -32,7 +32,7 @@ pip install -e ".[dev]"
 ## Environments
 
 Use an ID with `make_jaxenstein_env`, `make_jaxenstein_gymnax_env`, or
-`jaxenstein-play --maze {ID}`. The complete ID list is exported as
+`python play.py --maze {ID}`. The complete ID list is exported as
 `jaxenstein.JAXENSTEIN_ENV_IDS`.
 
 | Group | Environment | ID | Description |
@@ -91,10 +91,10 @@ obs, state, reward, done, info = env.step(step_key, state, ACTION_MOVE_FORWARD, 
 
 ## Scripts
 
-### `jaxenstein-play`
+### `play.py`
 
 ```bash
-jaxenstein-play --maze key-door
+python play.py --maze key-door
 ```
 
 Options:
@@ -112,19 +112,19 @@ Navigation controls: `W/S` move, `A/D` turn, `Space` interact, `R` reset,
 `Q` or `Escape` quit. Health Gathering uses `W` to move forward and `A/D` to
 turn.
 
-### `jaxenstein-compare-raycast-speed`
+### `scripts/compare_raycast_speed.py`
 
 ```bash
-jaxenstein-compare-raycast-speed --map my-way-home --widths 64 160 320
+python scripts/compare_raycast_speed.py --map my-way-home --widths 64 160 320
 ```
 
 Options: `--map`, `--widths`, `--max-depth`, `--samples`, `--repeats`,
 `--spawn-index`, `--theta`.
 
-### `jaxenstein-convert-dmlab-map`
+### `scripts/convert_dmlab_map.py`
 
 ```bash
-jaxenstein-convert-dmlab-map path/to/nav_maze_static_01.map
+python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
 ```
 
 Prints the Jaxenstein ASCII map for a DMLab `.map` file.
