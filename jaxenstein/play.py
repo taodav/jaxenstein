@@ -1,4 +1,4 @@
-"""Interactive keyboard player for Jaxenstein environments."""
+"""Interactive keyboard player for JAXenstein environments."""
 
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ class Player:
                 f"{render_w}x{render_h}."
             )
             self.scale = fitted_scale
-        self.root.title("Jaxenstein")
+        self.root.title("JAXenstein")
         self.root.resizable(False, False)
         self.image_label = tk.Label(self.root, borderwidth=0, highlightthickness=0)
         self.image_label.pack()

@@ -1,4 +1,4 @@
-"""Run the packaged Jaxenstein interactive player."""
+"""Run the packaged JAXenstein interactive player."""
 
 from jaxenstein.play import (
     _fit_display_scale,

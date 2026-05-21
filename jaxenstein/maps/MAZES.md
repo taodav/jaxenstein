@@ -1,6 +1,6 @@
 # ASCII Maze Guide
 
-This document describes how to define a custom Jaxenstein maze and initialize a `RayMazeEnv` from it.
+This document describes how to define a custom JAXenstein maze and initialize a `RayMazeEnv` from it.
 
 ## Minimal Map
 
@@ -181,7 +181,7 @@ symbols instead of textured patches. Random maps use `apple_reward`
 entities as `G` candidates, with one active goal sampled at reset.
 
 The DMLab Lua levels set `episodeLengthSeconds` to 60, 150, and 300 for
-indices 01, 02, and 03. Using a Doom-like 30 Hz step budget, Jaxenstein maps
+indices 01, 02, and 03. Using a Doom-like 30 Hz step budget, JAXenstein maps
 those to horizons of 1800, 4500, and 9000 for the static and random
 variants.
 

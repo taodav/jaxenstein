@@ -1,4 +1,4 @@
-"""Print the Jaxenstein ASCII conversion of a DMLab nav_maze .map file."""
+"""Print the JAXenstein ASCII conversion of a DMLab nav_maze .map file."""
 
 from __future__ import annotations
 

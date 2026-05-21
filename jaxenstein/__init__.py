@@ -1,4 +1,4 @@
-"""Public Jaxenstein API."""
+"""Public JAXenstein API."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from jaxenstein.maps.health_gathering import (
 
 
 def make_jaxenstein_gymnax_env(env_id: str, **kwargs: Any) -> Any:
-    """Create a Gymnax-compatible Jaxenstein environment and default params."""
+    """Create a Gymnax-compatible JAXenstein environment and default params."""
 
     try:
         from jaxenstein.gymnax import make_jaxenstein_gymnax_env as _make_gymnax_env

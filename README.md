@@ -132,7 +132,7 @@ Options: `--map`, `--widths`, `--max-depth`, `--samples`, `--repeats`,
 python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
 ```
 
-Prints the Jaxenstein ASCII map for a DMLab `.map` file.
+Prints the JAXenstein ASCII map for a DMLab `.map` file.
 
 ## Baselines
 Experiments on this benchmark (in the [paper](https://arxiv.org/abs/2605.19926)) are conducted on the [JAXenstein Baselines repo](https://github.com/taodav/jaxenstein_baselines).

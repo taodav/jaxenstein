@@ -29,7 +29,7 @@ _HEALTH_GATHERING_PARAM_NAMES = frozenset(
 
 
 def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGatheringEnv:
-    """Create a Jaxenstein environment from a registered environment ID."""
+    """Create a JAXenstein environment from a registered environment ID."""
 
     if env_id in HEALTH_GATHERING_MAPS_BY_NAME:
         params = kwargs.pop("params", None)

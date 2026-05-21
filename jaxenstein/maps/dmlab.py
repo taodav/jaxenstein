@@ -19,7 +19,7 @@ _DECAL_RE = re.compile(r"decal/lab_games/dec_img_style(\d+)_(\d+)")
 
 
 def dmlab_map_to_ascii(map_text: str, *, cell_size: float = DMLAB_CELL_SIZE) -> str:
-    """Convert a grid-aligned DMLab nav_maze .map into Jaxenstein ASCII."""
+    """Convert a grid-aligned DMLab nav_maze .map into JAXenstein ASCII."""
 
     entities = _top_level_blocks(map_text)
     if not entities:

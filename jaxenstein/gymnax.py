@@ -1,4 +1,4 @@
-"""Gymnax-compatible wrappers for Jaxenstein environments."""
+"""Gymnax-compatible wrappers for JAXenstein environments."""
 
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ class _BaseGymnaxEnv(Environment):
         )
 
 
-class JaxensteinGymnaxEnv(_BaseGymnaxEnv):
+class JAXensteinGymnaxEnv(_BaseGymnaxEnv):
     """Gymnax adapter for navigation environments."""
 
     native_env: RayMazeEnv
@@ -194,14 +194,14 @@ class HealthGatheringGymnaxEnv(_BaseGymnaxEnv):
 
 def make_jaxenstein_gymnax_env(
     env_id: str, **kwargs: Any
-) -> tuple[JaxensteinGymnaxEnv | HealthGatheringGymnaxEnv, EnvParams | HealthGatheringParams]:
-    """Create a Gymnax-compatible Jaxenstein environment and default params."""
+) -> tuple[JAXensteinGymnaxEnv | HealthGatheringGymnaxEnv, EnvParams | HealthGatheringParams]:
+    """Create a Gymnax-compatible JAXenstein environment and default params."""
 
     native_env = make_jaxenstein_env(env_id, **kwargs)
     if isinstance(native_env, HealthGatheringEnv):
         env = HealthGatheringGymnaxEnv(env_id, native_env)
     else:
-        env = JaxensteinGymnaxEnv(env_id, native_env)
+        env = JAXensteinGymnaxEnv(env_id, native_env)
     return env, env.default_params
 
 
