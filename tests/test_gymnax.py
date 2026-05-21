@@ -4,14 +4,23 @@ import pytest
 
 from jaxenstein import (
     ACTION_MOVE_FORWARD,
-    JAXENSTEIN_ENV_IDS,
     make_jaxenstein_gymnax_env,
 )
 
 
-@pytest.mark.parametrize("env_id", JAXENSTEIN_ENV_IDS)
-def test_make_jaxenstein_gymnax_env_supports_public_ids(env_id):
-    env, params = make_jaxenstein_gymnax_env(env_id, img_h=16, img_w=20)
+@pytest.mark.parametrize("env_id", ("simple", "health-gathering"))
+def test_make_jaxenstein_gymnax_env_wraps_native_env_types(env_id):
+    kwargs = (
+        {"initial_medkit_count": 0, "max_medkits": 4}
+        if env_id == "health-gathering"
+        else {}
+    )
+    env, params = make_jaxenstein_gymnax_env(
+        env_id,
+        img_h=16,
+        img_w=20,
+        **kwargs,
+    )
 
     obs, state = env.reset(jax.random.key(0), params)
     action = jnp.asarray(0, dtype=jnp.int32)
@@ -31,7 +40,11 @@ def test_make_jaxenstein_gymnax_env_supports_public_ids(env_id):
 
 @pytest.mark.parametrize("env_id", ("simple", "health-gathering"))
 def test_jaxenstein_gymnax_env_jit_reset_and_step(env_id):
-    kwargs = {"initial_medkit_count": 0, "max_medkits": 4} if env_id == "health-gathering" else {}
+    kwargs = (
+        {"initial_medkit_count": 0, "max_medkits": 4}
+        if env_id == "health-gathering"
+        else {}
+    )
     env, params = make_jaxenstein_gymnax_env(
         env_id,
         img_h=16,

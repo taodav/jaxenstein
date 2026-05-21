@@ -13,7 +13,7 @@ from jaxenstein.maps import (
 )
 
 
-README_ENV_IDS = (
+PUBLIC_ENV_IDS = (
     "simple",
     "key-door",
     "key-corridor",
@@ -29,12 +29,12 @@ README_ENV_IDS = (
 )
 
 
-def test_env_ids_match_readme_ids():
-    assert JAXENSTEIN_ENV_IDS == tuple(sorted(README_ENV_IDS))
+def test_public_env_ids_are_explicitly_tracked():
+    assert JAXENSTEIN_ENV_IDS == tuple(sorted(PUBLIC_ENV_IDS))
 
 
-@pytest.mark.parametrize("env_id", README_ENV_IDS)
-def test_make_jaxenstein_env_supports_readme_ids(env_id):
+@pytest.mark.parametrize("env_id", PUBLIC_ENV_IDS)
+def test_make_jaxenstein_env_supports_public_ids(env_id):
     env = make_jaxenstein_env(env_id)
 
     if env_id == "health-gathering":

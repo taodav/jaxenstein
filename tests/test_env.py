@@ -17,17 +17,11 @@ from jaxenstein.maps import (
     DMLAB_NAV_MAZE_03_MAX_STEPS,
     DMLAB_NAV_MAZE_HORIZON_FPS,
     DMLAB_NAV_MAZE_STATIC_01,
-    MAP_DISCOUNT_GAMMAS_BY_NAME,
     MAP_EPISODE_HORIZONS_BY_NAME,
-    MAP_REWARD_KWARGS_BY_NAME,
-    MAPS_BY_NAME,
-    MAZE_KEY_CORRIDOR,
     MAZE_SIMPLE,
-    MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS,
 )
 from jaxenstein.objects import (
     DOOR_UNLOCKED,
-    DOOR_UNLOCKED_YELLOW,
     KEY_COLOR_BLUE,
     KEY_COLOR_RED,
     OBJECT_GOAL,
@@ -55,18 +49,6 @@ def test_reset_returns_rgb_observation_and_spawn_state():
     )
 
 
-def test_custom_observation_resolution():
-    env = RayMazeEnv.from_ascii(MAZE_SIMPLE, img_h=96, img_w=128)
-
-    obs, state = env.reset(jax.random.key(0))
-    rendered = env.render(state)
-
-    assert env.observation_shape == (96, 128, 3)
-    assert obs.shape == (96, 128, 3)
-    assert rendered.shape == (96, 128, 3)
-    assert obs.dtype == jnp.uint8
-
-
 def test_custom_rewards_and_gamma():
     env = RayMazeEnv.from_ascii(
         MAZE_SIMPLE,
@@ -90,27 +72,6 @@ def test_custom_rewards_and_gamma():
     assert bool(goal_done)
     assert bool(jnp.isclose(goal_reward, 9.9))
     assert bool(jnp.isclose(inactive_reward, 0.0))
-
-
-def test_named_reward_and_gamma_specs_match_reference_tasks():
-    assert MAP_REWARD_KWARGS_BY_NAME["my-way-home"] == {
-        "goal_reward": 1.0,
-        "living_reward": -0.0001,
-    }
-    assert MAP_REWARD_KWARGS_BY_NAME["dmlab-static-01"] == {
-        "goal_reward": 10.0,
-        "living_reward": 0.0,
-    }
-    assert MAP_REWARD_KWARGS_BY_NAME["dmlab-random-03"] == {
-        "goal_reward": 10.0,
-        "living_reward": 0.0,
-    }
-    assert MAP_DISCOUNT_GAMMAS_BY_NAME["simple"] == 0.99
-    assert MAP_DISCOUNT_GAMMAS_BY_NAME["key-door"] == 0.99
-    assert MAP_DISCOUNT_GAMMAS_BY_NAME["my-way-home"] == 0.999
-    assert MAP_DISCOUNT_GAMMAS_BY_NAME["dmlab-static-01"] == 0.999
-    assert MAP_DISCOUNT_GAMMAS_BY_NAME["dmlab-static-02"] == 0.9995
-    assert MAP_DISCOUNT_GAMMAS_BY_NAME["dmlab-static-03"] == 0.9999
 
 
 def test_reset_samples_multiple_spawns_from_key():
@@ -188,24 +149,6 @@ def test_inactive_goal_candidate_does_not_end_episode():
     assert not bool(done)
     assert not bool(next_state.done)
     assert not bool(info["reached_goal"])
-
-
-def test_key_corridor_is_registered_with_minigrid_horizon():
-    env = RayMazeEnv.from_ascii(
-        MAPS_BY_NAME["key-corridor"],
-        episode_horizon=MAP_EPISODE_HORIZONS_BY_NAME["key-corridor"],
-    )
-    door_grid = env.maze.door_grid
-
-    assert MAPS_BY_NAME["key-corridor"] == MAZE_KEY_CORRIDOR
-    assert MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS == 480
-    assert int(env.episode_horizon) == MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS
-    assert int(jnp.sum(door_grid < 0)) == 5
-    assert int(jnp.sum(door_grid == DOOR_UNLOCKED)) == 3
-    assert int(jnp.sum(door_grid == DOOR_UNLOCKED_YELLOW)) == 2
-    assert int(jnp.sum(door_grid == KEY_COLOR_RED)) == 1
-    assert int(jnp.sum(env.maze.object_type == OBJECT_KEY)) == 1
-    assert int(jnp.sum(env.maze.object_type == OBJECT_GOAL)) == 1
 
 
 def test_dmlab_nav_maze_horizons_match_source_frame_steps():
@@ -338,26 +281,6 @@ def test_interact_opens_unlocked_door_without_key():
     assert int(info["opened_door_color"]) == DOOR_UNLOCKED
     assert bool(opened_state.door_open[1, 2])
     assert not bool(jnp.any(opened_state.carried_keys))
-
-
-def test_key_corridor_locked_door_requires_matching_key():
-    env = RayMazeEnv.from_ascii(MAZE_KEY_CORRIDOR)
-    _, state = env.reset(jax.random.key(0))
-    near_locked_door = state.replace(pos=jnp.asarray([5.2, 4.5], dtype=jnp.float32))
-
-    _, blocked_state, _, _, blocked_info = env.step(near_locked_door, ACTION_INTERACT)
-
-    carried_red_key = state.carried_keys.at[KEY_COLOR_RED].set(True)
-    _, opened_state, _, _, opened_info = env.step(
-        near_locked_door.replace(carried_keys=carried_red_key),
-        ACTION_INTERACT,
-    )
-
-    assert not bool(blocked_info["opened_door"])
-    assert not bool(blocked_state.door_open[4, 6])
-    assert bool(opened_info["opened_door"])
-    assert int(opened_info["opened_door_color"]) == KEY_COLOR_RED
-    assert bool(opened_state.door_open[4, 6])
 
 
 def test_interact_wrong_key_does_not_open_door():

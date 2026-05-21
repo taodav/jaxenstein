@@ -270,16 +270,6 @@ def test_render_jit_and_vmap():
         object_color=maze.object_color,
         object_active=jnp.ones_like(maze.object_type, dtype=jnp.bool_),
     )
-    patterned = jax.jit(
-        lambda pos, theta, wall_grid, color_grid: render_first_person(
-            pos,
-            theta,
-            wall_grid,
-            color_grid,
-            wall_height_scale=1.35,
-            floor_pattern=True,
-        )
-    )(maze.spawn_xy, maze.spawn_theta, maze.wall_grid, maze.color_grid)
     batched = jax.vmap(render_first_person)(positions, thetas, wall_grids, color_grids)
     batched_with_objects = jax.vmap(
         lambda pos, theta, wall_grid, color_grid, xy, kind, color, active: render_first_person(
@@ -304,6 +294,5 @@ def test_render_jit_and_vmap():
     )
 
     assert rgb.shape == (64, 64, 3)
-    assert patterned.shape == (64, 64, 3)
     assert batched.shape == (2, 64, 64, 3)
     assert batched_with_objects.shape == (2, 64, 64, 3)

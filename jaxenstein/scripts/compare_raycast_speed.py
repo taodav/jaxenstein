@@ -1,7 +1,7 @@
 """Compare fixed-step ray marching with grid DDA raycasting.
 
 Example:
-    uv run jaxenstein-compare-raycast-speed --map my-way-home --widths 64 160 320
+    uv run python scripts/compare_raycast_speed.py --map my-way-home --widths 64 160 320
 """
 
 from __future__ import annotations

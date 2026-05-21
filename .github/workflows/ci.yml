@@ -34,4 +34,4 @@ jobs:
       - name: Smoke test package imports
         run: |
           uv run python -c "import jaxenstein; print(jaxenstein.JAXENSTEIN_ENV_IDS)"
-          uv run jaxenstein-convert-dmlab-map --help
+          uv run python scripts/convert_dmlab_map.py --help

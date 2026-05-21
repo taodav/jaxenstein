@@ -775,9 +775,6 @@ name = "jaxenstein"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "flax", version = "0.10.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "flax", version = "0.12.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "gymnax" },
     { name = "jax", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "jax", version = "0.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -791,7 +788,11 @@ cuda12 = [
     { name = "jax", version = "0.10.0", source = { registry = "https://pypi.org/simple" }, extra = ["cuda12"], marker = "python_full_version >= '3.11' and sys_platform == 'linux'" },
 ]
 dev = [
+    { name = "gymnax" },
     { name = "pytest" },
+]
+gymnax = [
+    { name = "gymnax" },
 ]
 tpu = [
     { name = "jax", version = "0.6.2", source = { registry = "https://pypi.org/simple" }, extra = ["tpu"], marker = "python_full_version < '3.11' and sys_platform == 'linux'" },
@@ -800,8 +801,8 @@ tpu = [
 
 [package.metadata]
 requires-dist = [
-    { name = "flax", specifier = ">=0.10.7" },
-    { name = "gymnax", specifier = ">=0.0.9" },
+    { name = "gymnax", marker = "extra == 'dev'", specifier = ">=0.0.9" },
+    { name = "gymnax", marker = "extra == 'gymnax'", specifier = ">=0.0.9" },
     { name = "jax", specifier = ">=0.6.2" },
     { name = "jax", extras = ["cuda12"], marker = "sys_platform == 'linux' and extra == 'cuda12'", specifier = ">=0.6.2" },
     { name = "jax", extras = ["tpu"], marker = "sys_platform == 'linux' and extra == 'tpu'", specifier = ">=0.6.2" },
@@ -809,7 +810,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.1" },
 ]
-provides-extras = ["cuda12", "tpu", "dev"]
+provides-extras = ["gymnax", "cuda12", "tpu", "dev"]
 
 [[package]]
 name = "jaxlib"

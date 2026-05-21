@@ -77,7 +77,12 @@ step = jax.jit(jax.vmap(env.step))
 obs, states, reward, done, info = step(states, actions)
 ```
 
-For Gymnax-style training loops, use the Gymnax adapter factory:
+For Gymnax-style training loops, install the optional Gymnax extra and use the
+adapter factory:
+
+```bash
+pip install -e ".[gymnax]"
+```
 
 ```python
 from jaxenstein import ACTION_MOVE_FORWARD, make_jaxenstein_gymnax_env

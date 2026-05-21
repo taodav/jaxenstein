@@ -30,7 +30,15 @@ from jaxenstein.maps.health_gathering import (
 def make_jaxenstein_gymnax_env(env_id: str, **kwargs: Any) -> Any:
     """Create a Gymnax-compatible Jaxenstein environment and default params."""
 
-    from jaxenstein.gymnax import make_jaxenstein_gymnax_env as _make_gymnax_env
+    try:
+        from jaxenstein.gymnax import make_jaxenstein_gymnax_env as _make_gymnax_env
+    except ModuleNotFoundError as exc:
+        if exc.name == "gymnax":
+            raise ImportError(
+                "Gymnax support requires the optional dependency: "
+                'pip install "jaxenstein[gymnax]"'
+            ) from exc
+        raise
 
     return _make_gymnax_env(env_id, **kwargs)
 

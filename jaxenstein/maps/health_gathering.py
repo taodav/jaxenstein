@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from flax import struct
 import jax
 import jax.numpy as jnp
 import numpy as np
 
+import jaxenstein._struct as struct
 from jaxenstein.maps.ascii import Maze, parse_ascii_maze
 from jaxenstein.maps import (
     HEALTH_GATHERING_ACID_DAMAGE,

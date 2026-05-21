@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from flax import struct
 import jax
 import jax.numpy as jnp
 
+import jaxenstein._struct as struct
 from jaxenstein.maps.ascii import Maze, parse_ascii_maze
 from jaxenstein.objects import (
     DOOR_LOCKED_WALL_COLOR_OFFSET,

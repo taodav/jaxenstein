@@ -96,7 +96,7 @@ obs, state, reward, done, info = env.step(
 Interactive play:
 
 ```bash
-uv run jaxenstein-play --maze health-gathering
+uv run python play.py --maze health-gathering
 ```
 
 ## Actions
@@ -134,7 +134,7 @@ In this map, the agent starts at `S`, picks up the red key `r`, interacts with t
 Interactive play:
 
 ```bash
-uv run jaxenstein-play --maze key-door
+uv run python play.py --maze key-door
 ```
 
 ## MiniGrid KeyCorridor
@@ -151,7 +151,7 @@ configuration is
 `30 * room_size**2 = 480`, mirrored by `MAP_EPISODE_HORIZONS_BY_NAME`.
 
 ```bash
-uv run jaxenstein-play --maze key-corridor
+uv run python play.py --maze key-corridor
 ```
 
 ## My Way Home
@@ -165,11 +165,11 @@ The renderer uses a checker floor pattern and taller walls by default for all
 maps.
 
 `MAP_EPISODE_HORIZONS_BY_NAME` gives My Way Home a 2100-step timeout, and
-`jaxenstein-play` passes that horizon automatically.
+`play.py` passes that horizon automatically.
 
 ```bash
-uv run jaxenstein-play --maze my-way-home
-uv run jaxenstein-play --maze my-way-home-colorless
+uv run python play.py --maze my-way-home
+uv run python play.py --maze my-way-home-colorless
 ```
 
 ## DeepMind Lab Nav Mazes
@@ -186,8 +186,8 @@ those to horizons of 1800, 4500, and 9000 for the static and random
 variants.
 
 ```bash
-uv run jaxenstein-convert-dmlab-map path/to/nav_maze_static_01.map
-uv run jaxenstein-play --maze dmlab-static-01
+uv run python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
+uv run python play.py --maze dmlab-static-01
 ```
 
 ## Custom Map Example
