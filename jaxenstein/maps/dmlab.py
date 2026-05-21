@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import re
 
-from jes.objects import COLORED_WALL_SYMBOLS
+from jaxenstein.objects import COLORED_WALL_SYMBOLS
 
 
 DMLAB_CELL_SIZE = 100.0

@@ -1,15 +1,15 @@
 import jax
 import jax.numpy as jnp
 
-from jes.env import ACTION_MOVE_FORWARD, ACTION_TURN_LEFT, RayMazeEnv
-from jes.health_gathering import (
+from jaxenstein.env import ACTION_MOVE_FORWARD, ACTION_TURN_LEFT, RayMazeEnv
+from jaxenstein.maps.health_gathering import (
     HEALTH_GATHERING_NUM_ACTIONS,
     HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB,
     HEALTH_GATHERING_FLOOR_RGB,
     HealthGatheringEnv,
     HealthGatheringParams,
 )
-from jes.maps import (
+from jaxenstein.maps import (
     HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME,
     HEALTH_GATHERING_MAPS_BY_NAME,
     HEALTH_GATHERING_RENDER_KWARGS_BY_NAME,
@@ -31,8 +31,8 @@ from jes.maps import (
 
 
 def test_health_gathering_reset_uses_separate_health_state_and_defaults():
-    env = HealthGatheringEnv.from_ascii([MAZE_HEALTH_GATHERING])
-    nav_env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
+    env = HealthGatheringEnv.from_ascii(MAZE_HEALTH_GATHERING)
+    nav_env = RayMazeEnv.from_ascii(MAZE_SIMPLE)
 
     obs, state = env.reset(jax.random.key(0))
     _, nav_state = nav_env.reset(jax.random.key(0))
@@ -40,7 +40,7 @@ def test_health_gathering_reset_uses_separate_health_state_and_defaults():
     assert obs.shape == (64, 64, 3)
     assert obs.dtype == jnp.uint8
     assert env.num_actions == HEALTH_GATHERING_NUM_ACTIONS
-    assert int(env.episode_horizons[0]) == HEALTH_GATHERING_EPISODE_TIMEOUT
+    assert int(env.episode_horizon) == HEALTH_GATHERING_EPISODE_TIMEOUT
     assert float(state.health) == HEALTH_GATHERING_INITIAL_HEALTH
     assert int(jnp.sum(state.medkit_active)) == HEALTH_GATHERING_INITIAL_MEDKITS
     assert state.medkit_xy.shape == (HEALTH_GATHERING_MAX_MEDKITS, 2)
@@ -68,7 +68,7 @@ def test_health_gathering_reset_uses_separate_health_state_and_defaults():
 
 
 def test_health_gathering_medkit_pickup_heals_and_deactivates():
-    env = HealthGatheringEnv.from_ascii([MAZE_HEALTH_GATHERING])
+    env = HealthGatheringEnv.from_ascii(MAZE_HEALTH_GATHERING)
     _, state = env.reset(jax.random.key(0))
     only_first_medkit_active = jnp.arange(env.max_medkits) == 0
     damaged = state.replace(
@@ -97,7 +97,7 @@ def test_health_gathering_acid_damage_can_kill_with_death_penalty():
         acid_damage_interval=jnp.asarray(1, dtype=jnp.int32),
     )
     env = HealthGatheringEnv.from_ascii(
-        [MAZE_HEALTH_GATHERING],
+        MAZE_HEALTH_GATHERING,
         params=params,
         initial_medkit_count=0,
         max_medkits=4,
@@ -118,7 +118,7 @@ def test_health_gathering_acid_damage_can_kill_with_death_penalty():
 def test_health_gathering_spawns_new_medkit_every_interval():
     params = HealthGatheringParams(acid_damage=jnp.asarray(0.0, dtype=jnp.float32))
     env = HealthGatheringEnv.from_ascii(
-        [MAZE_HEALTH_GATHERING],
+        MAZE_HEALTH_GATHERING,
         params=params,
         initial_medkit_count=0,
         medkit_spawn_interval=2,
@@ -137,7 +137,7 @@ def test_health_gathering_spawns_new_medkit_every_interval():
 
 def test_health_gathering_movement_collision_and_periodic_damage_defaults():
     env = HealthGatheringEnv.from_ascii(
-        [MAZE_HEALTH_GATHERING],
+        MAZE_HEALTH_GATHERING,
         initial_medkit_count=0,
         max_medkits=4,
     )
@@ -168,7 +168,7 @@ def test_health_gathering_movement_collision_and_periodic_damage_defaults():
 
 def test_health_gathering_step_jit_and_vmap():
     env = HealthGatheringEnv.from_ascii(
-        [MAZE_HEALTH_GATHERING],
+        MAZE_HEALTH_GATHERING,
         initial_medkit_count=2,
         max_medkits=8,
     )

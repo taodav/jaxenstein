@@ -1,19 +1,6 @@
-"""Print the Jaxenstein ASCII conversion of a DMLab nav_maze .map file."""
+"""Run the packaged DMLab map converter."""
 
-from __future__ import annotations
-
-import argparse
-from pathlib import Path
-
-from jes.dmlab import dmlab_map_to_ascii
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("map_path", type=Path)
-    args = parser.parse_args()
-
-    print(dmlab_map_to_ascii(args.map_path.read_text()))
+from jaxenstein.scripts.convert_dmlab_map import main
 
 
 if __name__ == "__main__":

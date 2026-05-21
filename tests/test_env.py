@@ -1,14 +1,14 @@
 import jax
 import jax.numpy as jnp
 
-from jes.env import (
+from jaxenstein.env import (
     ACTION_INTERACT,
     ACTION_MOVE_BACKWARD,
     ACTION_MOVE_FORWARD,
     ACTION_TURN_LEFT,
     RayMazeEnv,
 )
-from jes.maps import (
+from jaxenstein.maps import (
     DMLAB_NAV_MAZE_01_EPISODE_LENGTH_SECONDS,
     DMLAB_NAV_MAZE_01_MAX_STEPS,
     DMLAB_NAV_MAZE_02_EPISODE_LENGTH_SECONDS,
@@ -17,8 +17,6 @@ from jes.maps import (
     DMLAB_NAV_MAZE_03_MAX_STEPS,
     DMLAB_NAV_MAZE_HORIZON_FPS,
     DMLAB_NAV_MAZE_STATIC_01,
-    DMLAB_NAV_MAZE_STATIC_02,
-    DMLAB_NAV_MAZE_STATIC_03,
     MAP_DISCOUNT_GAMMAS_BY_NAME,
     MAP_EPISODE_HORIZONS_BY_NAME,
     MAP_REWARD_KWARGS_BY_NAME,
@@ -27,7 +25,7 @@ from jes.maps import (
     MAZE_SIMPLE,
     MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS,
 )
-from jes.objects import (
+from jaxenstein.objects import (
     DOOR_UNLOCKED,
     DOOR_UNLOCKED_YELLOW,
     KEY_COLOR_BLUE,
@@ -38,7 +36,7 @@ from jes.objects import (
 
 
 def test_reset_returns_rgb_observation_and_spawn_state():
-    env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
+    env = RayMazeEnv.from_ascii(MAZE_SIMPLE)
 
     obs, state = env.reset(jax.random.key(0))
 
@@ -58,7 +56,7 @@ def test_reset_returns_rgb_observation_and_spawn_state():
 
 
 def test_custom_observation_resolution():
-    env = RayMazeEnv.from_ascii([MAZE_SIMPLE], img_h=96, img_w=128)
+    env = RayMazeEnv.from_ascii(MAZE_SIMPLE, img_h=96, img_w=128)
 
     obs, state = env.reset(jax.random.key(0))
     rendered = env.render(state)
@@ -71,7 +69,7 @@ def test_custom_observation_resolution():
 
 def test_custom_rewards_and_gamma():
     env = RayMazeEnv.from_ascii(
-        [MAZE_SIMPLE],
+        MAZE_SIMPLE,
         goal_reward=10.0,
         living_reward=-0.1,
         gamma=0.999,
@@ -117,13 +115,11 @@ def test_named_reward_and_gamma_specs_match_reference_tasks():
 
 def test_reset_samples_multiple_spawns_from_key():
     env = RayMazeEnv.from_ascii(
-        [
-            """
-            #######
-            #S.S.G#
-            #######
-            """
-        ]
+        """
+        #######
+        #S.S.G#
+        #######
+        """
     )
     keys = jax.random.split(jax.random.key(0), 64)
 
@@ -139,43 +135,18 @@ def test_reset_samples_multiple_spawns_from_key():
     assert int(unique_spawns.shape[0]) == 2
 
 
-def test_reset_samples_map_when_vmapped():
-    env = RayMazeEnv.from_ascii(
-        [
-            """
-            #####
-            #S.G#
-            #####
-            """,
-            """
-            #######
-            #S...G#
-            #######
-            """,
-        ]
-    )
-    keys = jax.random.split(jax.random.key(0), 64)
-
-    _, states = jax.vmap(env.reset)(keys)
-
-    assert states.maze_id.shape == (64,)
-    assert int(jnp.unique(states.maze_id).shape[0]) == 2
-
-
 def test_reset_samples_one_active_goal_from_multiple_candidates():
     env = RayMazeEnv.from_ascii(
-        [
-            """
-            #########
-            #S.G.G.#
-            #########
-            """
-        ]
+        """
+        #########
+        #S.G.G.#
+        #########
+        """
     )
     keys = jax.random.split(jax.random.key(0), 64)
 
     _, states = jax.vmap(env.reset)(keys)
-    object_type = env.maze_batch.object_type[0]
+    object_type = env.maze.object_type
     active_goals = states.object_active & (object_type[None, :] == OBJECT_GOAL)
     valid_goals = jnp.asarray([[3.5, 1.5], [5.5, 1.5]], dtype=jnp.float32)
     is_valid_goal = jnp.any(
@@ -190,21 +161,19 @@ def test_reset_samples_one_active_goal_from_multiple_candidates():
 
 def test_inactive_goal_candidate_does_not_end_episode():
     env = RayMazeEnv.from_ascii(
-        [
-            """
-            #########
-            #S.G.G.#
-            #########
-            """
-        ]
+        """
+        #########
+        #S.G.G.#
+        #########
+        """
     )
     _, state = env.reset(jax.random.key(0))
-    object_type = env.maze_batch.object_type[0]
+    object_type = env.maze.object_type
     inactive_goal = (object_type == OBJECT_GOAL) & ~state.object_active
     inactive_goal_xy = jnp.sum(
         jnp.where(
             inactive_goal[:, None],
-            env.maze_batch.object_xy[0],
+            env.maze.object_xy,
             jnp.asarray(0.0, dtype=jnp.float32),
         ),
         axis=0,
@@ -221,67 +190,28 @@ def test_inactive_goal_candidate_does_not_end_episode():
     assert not bool(info["reached_goal"])
 
 
-def test_episode_horizons_can_vary_by_maze():
-    env = RayMazeEnv.from_ascii(
-        [
-            """
-            #####
-            #S.G#
-            #####
-            """,
-            """
-            #####
-            #S.G#
-            #####
-            """,
-        ],
-        episode_horizons=[1, 2],
-    )
-    _, state = env.reset(jax.random.key(0))
-    short_state = state.replace(maze_id=jnp.asarray(0, dtype=jnp.int32))
-    long_state = state.replace(maze_id=jnp.asarray(1, dtype=jnp.int32))
-
-    _, short_state, _, short_done, _ = env.step(short_state, ACTION_TURN_LEFT)
-    _, long_state, _, long_done, _ = env.step(long_state, ACTION_TURN_LEFT)
-    _, long_state, _, long_done2, _ = env.step(long_state, ACTION_TURN_LEFT)
-
-    assert bool(short_done)
-    assert bool(short_state.done)
-    assert not bool(long_done)
-    assert bool(long_done2)
-    assert bool(long_state.done)
-
-
 def test_key_corridor_is_registered_with_minigrid_horizon():
     env = RayMazeEnv.from_ascii(
-        [MAPS_BY_NAME["key-corridor"]],
-        episode_horizons=[MAP_EPISODE_HORIZONS_BY_NAME["key-corridor"]],
+        MAPS_BY_NAME["key-corridor"],
+        episode_horizon=MAP_EPISODE_HORIZONS_BY_NAME["key-corridor"],
     )
-    door_grid = env.maze_batch.door_grids[0]
+    door_grid = env.maze.door_grid
 
     assert MAPS_BY_NAME["key-corridor"] == MAZE_KEY_CORRIDOR
     assert MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS == 480
-    assert int(env.episode_horizons[0]) == MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS
+    assert int(env.episode_horizon) == MINIGRID_KEY_CORRIDOR_S4R3_MAX_STEPS
     assert int(jnp.sum(door_grid < 0)) == 5
     assert int(jnp.sum(door_grid == DOOR_UNLOCKED)) == 3
     assert int(jnp.sum(door_grid == DOOR_UNLOCKED_YELLOW)) == 2
     assert int(jnp.sum(door_grid == KEY_COLOR_RED)) == 1
-    assert int(jnp.sum(env.maze_batch.object_type[0] == OBJECT_KEY)) == 1
-    assert int(jnp.sum(env.maze_batch.object_type[0] == OBJECT_GOAL)) == 1
+    assert int(jnp.sum(env.maze.object_type == OBJECT_KEY)) == 1
+    assert int(jnp.sum(env.maze.object_type == OBJECT_GOAL)) == 1
 
 
 def test_dmlab_nav_maze_horizons_match_source_frame_steps():
     env = RayMazeEnv.from_ascii(
-        [
-            DMLAB_NAV_MAZE_STATIC_01,
-            DMLAB_NAV_MAZE_STATIC_02,
-            DMLAB_NAV_MAZE_STATIC_03,
-        ],
-        episode_horizons=[
-            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-static-01"],
-            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-static-02"],
-            MAP_EPISODE_HORIZONS_BY_NAME["dmlab-static-03"],
-        ],
+        DMLAB_NAV_MAZE_STATIC_01,
+        episode_horizon=MAP_EPISODE_HORIZONS_BY_NAME["dmlab-static-01"],
     )
 
     assert DMLAB_NAV_MAZE_01_EPISODE_LENGTH_SECONDS == 60
@@ -291,14 +221,14 @@ def test_dmlab_nav_maze_horizons_match_source_frame_steps():
     assert DMLAB_NAV_MAZE_01_MAX_STEPS == 1800
     assert DMLAB_NAV_MAZE_02_MAX_STEPS == 4500
     assert DMLAB_NAV_MAZE_03_MAX_STEPS == 9000
-    assert env.episode_horizons.tolist() == [1800, 4500, 9000]
+    assert int(env.episode_horizon) == 1800
     assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-01"] == 1800
     assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-02"] == 4500
     assert MAP_EPISODE_HORIZONS_BY_NAME["dmlab-random-03"] == 9000
 
 
 def test_forward_collision_noops_at_wall():
-    env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
+    env = RayMazeEnv.from_ascii(MAZE_SIMPLE)
     _, state = env.reset(jax.random.key(0))
     wall_facing_state = state.replace(
         pos=jnp.asarray([1.05, 1.5], dtype=jnp.float32),
@@ -313,7 +243,7 @@ def test_forward_collision_noops_at_wall():
 
 
 def test_backward_movement_uses_collision():
-    env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
+    env = RayMazeEnv.from_ascii(MAZE_SIMPLE)
     _, state = env.reset(jax.random.key(0))
 
     _, next_state, _, _, _ = env.step(state, ACTION_MOVE_BACKWARD)
@@ -322,7 +252,7 @@ def test_backward_movement_uses_collision():
 
 
 def test_sparse_goal_reward_and_done():
-    env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
+    env = RayMazeEnv.from_ascii(MAZE_SIMPLE)
     _, state = env.reset(jax.random.key(0))
     near_goal = state.replace(pos=jnp.asarray([7.25, 3.5], dtype=jnp.float32))
 
@@ -338,13 +268,11 @@ def test_sparse_goal_reward_and_done():
 
 def test_pickup_object_deactivates_without_done():
     env = RayMazeEnv.from_ascii(
-        [
-            """
-            #####
-            #SrG#
-            #####
-            """
-        ]
+        """
+        #####
+        #SrG#
+        #####
+        """
     )
     _, state = env.reset(jax.random.key(0))
     near_key = state.replace(pos=jnp.asarray([2.2, 1.5], dtype=jnp.float32))
@@ -362,13 +290,11 @@ def test_pickup_object_deactivates_without_done():
 
 def test_interact_opens_matching_colored_door():
     env = RayMazeEnv.from_ascii(
-        [
-            """
-            ######
-            #SrRG#
-            ######
-            """
-        ]
+        """
+        ######
+        #SrRG#
+        ######
+        """
     )
     _, state = env.reset(jax.random.key(0))
     near_key = state.replace(pos=jnp.asarray([2.2, 1.5], dtype=jnp.float32))
@@ -398,13 +324,11 @@ def test_interact_opens_matching_colored_door():
 
 def test_interact_opens_unlocked_door_without_key():
     env = RayMazeEnv.from_ascii(
-        [
-            """
-            ######
-            #S".G#
-            ######
-            """
-        ]
+        """
+        ######
+        #S".G#
+        ######
+        """
     )
     _, state = env.reset(jax.random.key(0))
 
@@ -417,7 +341,7 @@ def test_interact_opens_unlocked_door_without_key():
 
 
 def test_key_corridor_locked_door_requires_matching_key():
-    env = RayMazeEnv.from_ascii([MAZE_KEY_CORRIDOR])
+    env = RayMazeEnv.from_ascii(MAZE_KEY_CORRIDOR)
     _, state = env.reset(jax.random.key(0))
     near_locked_door = state.replace(pos=jnp.asarray([5.2, 4.5], dtype=jnp.float32))
 
@@ -438,13 +362,11 @@ def test_key_corridor_locked_door_requires_matching_key():
 
 def test_interact_wrong_key_does_not_open_door():
     env = RayMazeEnv.from_ascii(
-        [
-            """
-            ######
-            #SbRG#
-            ######
-            """
-        ]
+        """
+        ######
+        #SbRG#
+        ######
+        """
     )
     _, state = env.reset(jax.random.key(0))
     near_key = state.replace(pos=jnp.asarray([2.2, 1.5], dtype=jnp.float32))
@@ -460,7 +382,7 @@ def test_interact_wrong_key_does_not_open_door():
 
 
 def test_step_jit_and_vmap():
-    env = RayMazeEnv.from_ascii([MAZE_SIMPLE])
+    env = RayMazeEnv.from_ascii(MAZE_SIMPLE)
     obs0, state = jax.jit(env.reset)(jax.random.key(0))
     rendered0 = jax.jit(env.render)(state)
 

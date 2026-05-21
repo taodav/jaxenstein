@@ -1,9 +1,9 @@
 import jax
 import jax.numpy as jnp
 
-from jes.ascii import parse_ascii_maze
-from jes.maps import MAZE_SIMPLE
-from jes.objects import (
+from jaxenstein.maps.ascii import parse_ascii_maze
+from jaxenstein.maps import MAZE_SIMPLE
+from jaxenstein.objects import (
     DOOR_UNLOCKED,
     KEY_COLOR_BLUE,
     KEY_COLOR_NONE,
@@ -12,7 +12,7 @@ from jes.objects import (
     OBJECT_MEDKIT,
     door_wall_color_id,
 )
-from jes.render import (
+from jaxenstein.render import (
     raycast_dda,
     raycast_fixed_step,
     render_first_person,

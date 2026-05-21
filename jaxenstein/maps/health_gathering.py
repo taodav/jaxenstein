@@ -9,8 +9,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from jes.ascii import Maze, MazeBatch, parse_and_stack, stack_mazes
-from jes.maps import (
+from jaxenstein.maps.ascii import Maze, parse_ascii_maze
+from jaxenstein.maps import (
     HEALTH_GATHERING_ACID_DAMAGE,
     HEALTH_GATHERING_ACID_DAMAGE_INTERVAL,
     HEALTH_GATHERING_DEATH_PENALTY,
@@ -27,8 +27,8 @@ from jes.maps import (
     HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB as _FLOOR_CHECKER_DARK_RGB,
     HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB as _FLOOR_CHECKER_LIGHT_RGB,
 )
-from jes.objects import KEY_COLOR_RED, OBJECT_MEDKIT, object_pickup_radius
-from jes.render import (
+from jaxenstein.objects import KEY_COLOR_RED, OBJECT_MEDKIT, object_pickup_radius
+from jaxenstein.render import (
     DEFAULT_WALL_PALETTE,
     render_first_person,
 )
@@ -57,7 +57,6 @@ class HealthGatheringState:
     theta: jax.Array
     t: jax.Array
     done: jax.Array
-    maze_id: jax.Array
     health: jax.Array
     medkit_xy: jax.Array
     medkit_active: jax.Array
@@ -120,10 +119,10 @@ class HealthGatheringEnv:
 
     def __init__(
         self,
-        maze_batch: MazeBatch,
+        maze: Maze,
         *,
         params: HealthGatheringParams | None = None,
-        episode_horizons: Sequence[int] | jax.Array | int | None = None,
+        episode_horizon: jax.Array | int | None = None,
         initial_medkit_count: int = HEALTH_GATHERING_INITIAL_MEDKITS,
         medkit_spawn_interval: int = HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
         max_medkits: int = HEALTH_GATHERING_MAX_MEDKITS,
@@ -153,7 +152,7 @@ class HealthGatheringEnv:
         if max_medkits <= initial_medkit_count:
             raise ValueError("max_medkits must be > initial_medkit_count")
 
-        self.maze_batch = maze_batch
+        self.maze = maze
         self.params = HealthGatheringParams() if params is None else params
         self.initial_medkit_count = int(initial_medkit_count)
         self.medkit_spawn_interval = int(medkit_spawn_interval)
@@ -174,14 +173,13 @@ class HealthGatheringEnv:
         self.wall_height_scale = wall_height_scale
         self.floor_pattern = floor_pattern
         self.gamma = float(gamma)
-        self.episode_horizons = _episode_horizon_array(
-            episode_horizons,
-            num_mazes=int(maze_batch.wall_grids.shape[0]),
+        self.episode_horizon = _episode_horizon(
+            episode_horizon,
             default_horizon=jnp.asarray(
                 HEALTH_GATHERING_EPISODE_TIMEOUT, dtype=jnp.int32
             ),
         )
-        self.floor_xy_options, self.floor_counts = _floor_options(maze_batch)
+        self.floor_xy_options, self.floor_count = _floor_options(maze)
         self._medkit_type = jnp.full(
             (self.max_medkits,), OBJECT_MEDKIT, dtype=jnp.int32
         )
@@ -190,18 +188,8 @@ class HealthGatheringEnv:
         )
 
     @classmethod
-    def from_mazes(cls, mazes: Sequence[Maze], **kwargs) -> "HealthGatheringEnv":
-        return cls(stack_mazes(list(mazes)), **kwargs)
-
-    @classmethod
-    def from_ascii(
-        cls, ascii_mazes: Sequence[str], **kwargs
-    ) -> "HealthGatheringEnv":
-        return cls(parse_and_stack(list(ascii_mazes), require_goal=False), **kwargs)
-
-    @property
-    def num_mazes(self) -> int:
-        return int(self.maze_batch.wall_grids.shape[0])
+    def from_ascii(cls, ascii_maze: str, **kwargs) -> "HealthGatheringEnv":
+        return cls(parse_ascii_maze(ascii_maze, require_goal=False), **kwargs)
 
     @property
     def num_actions(self) -> int:
@@ -211,37 +199,27 @@ class HealthGatheringEnv:
     def observation_shape(self) -> tuple[int, int, int]:
         return (self.img_h, self.img_w, 3)
 
-    def reset(self, key: jax.Array) -> tuple[jax.Array, HealthGatheringState]:
-        if self.num_mazes == 1:
-            maze_id = jnp.asarray(0, dtype=jnp.int32)
-        else:
-            maze_key, key = jax.random.split(key)
-            maze_id = jax.random.randint(
-                maze_key,
-                shape=(),
-                minval=0,
-                maxval=self.num_mazes,
-                dtype=jnp.int32,
-            )
-
+    def reset(
+        self, key: jax.Array, params: HealthGatheringParams | None = None
+    ) -> tuple[jax.Array, HealthGatheringState]:
+        params = self.params if params is None else params
         spawn_key, medkit_key, state_key = jax.random.split(key, 3)
         spawn_idx = jax.random.randint(
             spawn_key,
             shape=(),
             minval=0,
-            maxval=self.maze_batch.spawn_count[maze_id],
+            maxval=self.maze.spawn_count,
             dtype=jnp.int32,
         )
         medkit_keys = jax.random.split(medkit_key, self.max_medkits)
-        medkit_xy = jax.vmap(lambda k: self._sample_floor_xy(k, maze_id))(medkit_keys)
+        medkit_xy = jax.vmap(self._sample_floor_xy)(medkit_keys)
         medkit_active = jnp.arange(self.max_medkits) < self.initial_medkit_count
         state = HealthGatheringState(
-            pos=self.maze_batch.spawn_xy_options[maze_id, spawn_idx],
-            theta=self.maze_batch.spawn_theta[maze_id],
+            pos=self.maze.spawn_xy_options[spawn_idx],
+            theta=self.maze.spawn_theta,
             t=jnp.asarray(0, dtype=jnp.int32),
             done=jnp.asarray(False),
-            maze_id=maze_id,
-            health=self.params.initial_health,
+            health=params.initial_health,
             medkit_xy=medkit_xy,
             medkit_active=medkit_active,
             next_medkit_slot=jnp.asarray(self.initial_medkit_count, dtype=jnp.int32),
@@ -250,7 +228,10 @@ class HealthGatheringEnv:
         return self.render(state), state
 
     def step(
-        self, state: HealthGatheringState, action: jax.Array | int
+        self,
+        state: HealthGatheringState,
+        action: jax.Array | int,
+        params: HealthGatheringParams | None = None,
     ) -> tuple[
         jax.Array,
         HealthGatheringState,
@@ -258,15 +239,16 @@ class HealthGatheringEnv:
         jax.Array,
         dict[str, jax.Array],
     ]:
+        params = self.params if params is None else params
         action = jnp.asarray(action, dtype=jnp.int32)
         active = ~state.done
 
         turn_delta = jnp.where(
             action == HEALTH_GATHERING_ACTION_TURN_LEFT,
-            -self.params.turn_angle,
+            -params.turn_angle,
             jnp.where(
                 action == HEALTH_GATHERING_ACTION_TURN_RIGHT,
-                self.params.turn_angle,
+                params.turn_angle,
                 0.0,
             ),
         )
@@ -278,39 +260,38 @@ class HealthGatheringEnv:
         )
         proposed_pos = state.pos + jnp.where(
             active,
-            move_direction * self.params.move_speed * forward,
+            move_direction * params.move_speed * forward,
             jnp.zeros((2,), dtype=jnp.float32),
         )
-        wall_grid = self.maze_batch.wall_grids[state.maze_id]
+        wall_grid = self.maze.wall_grid
         blocked = _is_wall_at(wall_grid, proposed_pos)
         pos = jnp.where(blocked, state.pos, proposed_pos)
 
         medkit_distances = jnp.linalg.norm(state.medkit_xy - pos[None, :], axis=-1)
         picked_medkits = active & state.medkit_active & (
-            medkit_distances < self.params.medkit_radius
+            medkit_distances < params.medkit_radius
         )
         picked_medkit = jnp.any(picked_medkits)
         medkit_active = state.medkit_active & ~picked_medkits
         health_after_pickup = jnp.minimum(
-            state.health + jnp.where(picked_medkit, self.params.medkit_heal, 0.0),
-            self.params.max_health,
+            state.health + jnp.where(picked_medkit, params.medkit_heal, 0.0),
+            params.max_health,
         )
 
         t = state.t + jnp.where(active, 1, 0).astype(jnp.int32)
-        acid_damage_interval = jnp.maximum(self.params.acid_damage_interval, 1)
+        acid_damage_interval = jnp.maximum(params.acid_damage_interval, 1)
         takes_acid_damage = (
             active
-            & (self.params.acid_damage > 0.0)
+            & (params.acid_damage > 0.0)
             & (jnp.mod(t, acid_damage_interval) == 0)
         )
         health = jnp.maximum(
             health_after_pickup
-            - jnp.where(takes_acid_damage, self.params.acid_damage, 0.0),
+            - jnp.where(takes_acid_damage, params.acid_damage, 0.0),
             0.0,
         )
         died = active & (health <= 0.0)
-        episode_horizon = self.episode_horizons[state.maze_id]
-        done = state.done | died | (t >= episode_horizon)
+        done = state.done | died | (t >= self.episode_horizon)
 
         rng_key, spawn_key = jax.random.split(state.rng_key)
         spawn_medkit = (
@@ -324,7 +305,7 @@ class HealthGatheringEnv:
                 == 0
             )
         )
-        spawn_xy = self._sample_floor_xy(spawn_key, state.maze_id)
+        spawn_xy = self._sample_floor_xy(spawn_key)
         slot = state.next_medkit_slot
         medkit_xy = state.medkit_xy.at[slot].set(
             jnp.where(spawn_medkit, spawn_xy, state.medkit_xy[slot])
@@ -340,7 +321,7 @@ class HealthGatheringEnv:
         rng_key = jnp.where(active, rng_key, state.rng_key)
         reward = jnp.where(
             active,
-            jnp.where(died, -self.params.death_penalty, self.params.living_reward),
+            jnp.where(died, -params.death_penalty, params.living_reward),
             0.0,
         ).astype(jnp.float32)
 
@@ -349,7 +330,6 @@ class HealthGatheringEnv:
             theta=theta,
             t=t,
             done=done,
-            maze_id=state.maze_id,
             health=health,
             medkit_xy=medkit_xy,
             medkit_active=medkit_active,
@@ -365,9 +345,8 @@ class HealthGatheringEnv:
             "health": health,
             "picked_medkit": picked_medkit,
             "spawned_medkit": spawn_medkit,
-            "acid_damage": jnp.where(takes_acid_damage, self.params.acid_damage, 0.0),
+            "acid_damage": jnp.where(takes_acid_damage, params.acid_damage, 0.0),
             "died": died,
-            "maze_id": state.maze_id,
         }
         return self.render(new_state), new_state, reward, done, info
 
@@ -375,8 +354,8 @@ class HealthGatheringEnv:
         return render_first_person(
             state.pos,
             state.theta,
-            self.maze_batch.wall_grids[state.maze_id],
-            self.maze_batch.color_grids[state.maze_id],
+            self.maze.wall_grid,
+            self.maze.color_grid,
             img_h=self.img_h,
             img_w=self.img_w,
             fov=self.fov,
@@ -394,16 +373,16 @@ class HealthGatheringEnv:
             floor_pattern=self.floor_pattern,
         )
 
-    def _sample_floor_xy(self, key: jax.Array, maze_id: jax.Array) -> jax.Array:
+    def _sample_floor_xy(self, key: jax.Array) -> jax.Array:
         cell_key, jitter_key = jax.random.split(key)
         option_idx = jax.random.randint(
             cell_key,
             shape=(),
             minval=0,
-            maxval=self.floor_counts[maze_id],
+            maxval=self.floor_count,
             dtype=jnp.int32,
         )
-        cell_xy = self.floor_xy_options[maze_id, option_idx]
+        cell_xy = self.floor_xy_options[option_idx]
         jitter = jax.random.uniform(
             jitter_key,
             shape=(2,),
@@ -414,26 +393,13 @@ class HealthGatheringEnv:
         return cell_xy + jitter
 
 
-def _floor_options(maze_batch: MazeBatch) -> tuple[jax.Array, jax.Array]:
-    wall_grids = np.asarray(maze_batch.wall_grids)
-    options: list[np.ndarray] = []
-    counts: list[int] = []
-    for wall_grid in wall_grids:
-        open_y, open_x = np.nonzero(~wall_grid)
-        if open_x.size == 0:
-            raise ValueError(
-                "health gathering maps must contain at least one floor cell"
-            )
-        xy = np.stack([open_x + 0.5, open_y + 0.5], axis=-1).astype(np.float32)
-        options.append(xy)
-        counts.append(int(xy.shape[0]))
-
-    max_options = max(counts)
-    padded = []
-    for xy in options:
-        pad = max_options - int(xy.shape[0])
-        padded.append(np.pad(xy, ((0, pad), (0, 0)), constant_values=0.0))
-    return jnp.asarray(np.stack(padded)), jnp.asarray(counts, dtype=jnp.int32)
+def _floor_options(maze: Maze) -> tuple[jax.Array, jax.Array]:
+    wall_grid = np.asarray(maze.wall_grid)
+    open_y, open_x = np.nonzero(~wall_grid)
+    if open_x.size == 0:
+        raise ValueError("health gathering maps must contain at least one floor cell")
+    xy = np.stack([open_x + 0.5, open_y + 0.5], axis=-1).astype(np.float32)
+    return jnp.asarray(xy), jnp.asarray(xy.shape[0], dtype=jnp.int32)
 
 
 def _is_wall_at(wall_grid: jax.Array, xy: jax.Array) -> jax.Array:
@@ -446,21 +412,15 @@ def _is_wall_at(wall_grid: jax.Array, xy: jax.Array) -> jax.Array:
     return wall_grid[clipped_y, clipped_x] | ~inside
 
 
-def _episode_horizon_array(
-    episode_horizons: Sequence[int] | jax.Array | int | None,
+def _episode_horizon(
+    episode_horizon: jax.Array | int | None,
     *,
-    num_mazes: int,
     default_horizon: jax.Array,
 ) -> jax.Array:
-    if episode_horizons is None:
-        return jnp.full((num_mazes,), default_horizon, dtype=jnp.int32)
+    if episode_horizon is None:
+        return jnp.asarray(default_horizon, dtype=jnp.int32)
 
-    horizons = jnp.asarray(episode_horizons, dtype=jnp.int32)
-    if horizons.ndim == 0:
-        return jnp.full((num_mazes,), horizons, dtype=jnp.int32)
-    if horizons.shape != (num_mazes,):
-        raise ValueError(
-            f"episode_horizons must be scalar or have shape ({num_mazes},), "
-            f"got {horizons.shape}"
-        )
-    return horizons
+    horizon = jnp.asarray(episode_horizon, dtype=jnp.int32)
+    if horizon.ndim != 0:
+        raise ValueError(f"episode_horizon must be scalar, got {horizon.shape}")
+    return horizon

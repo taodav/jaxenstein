@@ -1,4 +1,4 @@
-"""Hand-authored benchmark maps."""
+"""Map definitions and map-specific defaults."""
 
 MAZE_SIMPLE = """
 #########

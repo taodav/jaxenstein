@@ -9,11 +9,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from jes.objects import (
+from jaxenstein.objects import (
     DOOR_SYMBOLS,
-    KEY_COLOR_NONE,
     OBJECT_GOAL,
-    OBJECT_NONE,
     OBJECT_SYMBOLS,
     WALL_SYMBOLS,
 )
@@ -32,21 +30,6 @@ class Maze:
     object_type: jax.Array
     object_color: jax.Array
     door_grid: jax.Array
-
-
-@dataclass(frozen=True)
-class MazeBatch:
-    wall_grids: jax.Array
-    color_grids: jax.Array
-    spawn_xy: jax.Array
-    spawn_xy_options: jax.Array
-    spawn_count: jax.Array
-    spawn_theta: jax.Array
-    goal_xy: jax.Array
-    object_xy: jax.Array
-    object_type: jax.Array
-    object_color: jax.Array
-    door_grids: jax.Array
 
 
 def _clean_ascii(ascii_maze: str) -> list[str]:
@@ -139,111 +122,3 @@ def parse_ascii_maze(
         door_grid=jnp.asarray(door_grid),
     )
 
-
-def stack_mazes(mazes: list[Maze]) -> MazeBatch:
-    """Stack mazes into a padded batch.
-
-    Smaller maps are padded on the bottom/right with walls so dynamic maze
-    indexing remains valid for JIT and vmap.
-    """
-
-    if not mazes:
-        raise ValueError("expected at least one maze")
-
-    max_h = max(int(maze.wall_grid.shape[0]) for maze in mazes)
-    max_w = max(int(maze.wall_grid.shape[1]) for maze in mazes)
-    max_objects = max(int(maze.object_type.shape[0]) for maze in mazes)
-    max_spawns = max(int(maze.spawn_xy_options.shape[0]) for maze in mazes)
-
-    wall_grids = []
-    color_grids = []
-    spawn_xy_options = []
-    object_xy = []
-    object_type = []
-    object_color = []
-    door_grids = []
-    for maze in mazes:
-        h, w = maze.wall_grid.shape
-        pad_h = max_h - int(h)
-        pad_w = max_w - int(w)
-        wall_grids.append(
-            jnp.pad(
-                maze.wall_grid,
-                ((0, pad_h), (0, pad_w)),
-                mode="constant",
-                constant_values=True,
-            )
-        )
-        color_grids.append(
-            jnp.pad(
-                maze.color_grid,
-                ((0, pad_h), (0, pad_w)),
-                mode="constant",
-                constant_values=1,
-            )
-        )
-        door_grids.append(
-            jnp.pad(
-                maze.door_grid,
-                ((0, pad_h), (0, pad_w)),
-                mode="constant",
-                constant_values=KEY_COLOR_NONE,
-            )
-        )
-        pad_spawns = max_spawns - int(maze.spawn_xy_options.shape[0])
-        spawn_xy_options.append(
-            jnp.pad(
-                maze.spawn_xy_options,
-                ((0, pad_spawns), (0, 0)),
-                mode="constant",
-                constant_values=0,
-            )
-        )
-        pad_objects = max_objects - int(maze.object_type.shape[0])
-        object_xy.append(
-            jnp.pad(
-                maze.object_xy,
-                ((0, pad_objects), (0, 0)),
-                mode="constant",
-                constant_values=0,
-            )
-        )
-        object_type.append(
-            jnp.pad(
-                maze.object_type,
-                (0, pad_objects),
-                mode="constant",
-                constant_values=OBJECT_NONE,
-            )
-        )
-        object_color.append(
-            jnp.pad(
-                maze.object_color,
-                (0, pad_objects),
-                mode="constant",
-                constant_values=KEY_COLOR_NONE,
-            )
-        )
-
-    return MazeBatch(
-        wall_grids=jnp.stack(wall_grids),
-        color_grids=jnp.stack(color_grids),
-        spawn_xy=jnp.stack([maze.spawn_xy for maze in mazes]),
-        spawn_xy_options=jnp.stack(spawn_xy_options),
-        spawn_count=jnp.asarray([maze.spawn_count for maze in mazes], dtype=jnp.int32),
-        spawn_theta=jnp.stack([maze.spawn_theta for maze in mazes]),
-        goal_xy=jnp.stack([maze.goal_xy for maze in mazes]),
-        object_xy=jnp.stack(object_xy),
-        object_type=jnp.stack(object_type),
-        object_color=jnp.stack(object_color),
-        door_grids=jnp.stack(door_grids),
-    )
-
-
-def parse_and_stack(ascii_mazes: list[str], *, require_goal: bool = True) -> MazeBatch:
-    return stack_mazes(
-        [
-            parse_ascii_maze(ascii_maze, require_goal=require_goal)
-            for ascii_maze in ascii_mazes
-        ]
-    )

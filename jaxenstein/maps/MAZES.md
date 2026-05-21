@@ -5,7 +5,7 @@ This document describes how to define a custom Jaxenstein maze and initialize a 
 ## Minimal Map
 
 ```python
-from jes import RayMazeEnv
+from jaxenstein import RayMazeEnv
 
 MY_MAZE = """
 #########
@@ -15,7 +15,7 @@ MY_MAZE = """
 #########
 """
 
-env = RayMazeEnv.from_ascii([MY_MAZE])
+env = RayMazeEnv.from_ascii(MY_MAZE)
 ```
 
 Every maze must contain at least one spawn and at least one goal. If a map has
@@ -33,7 +33,7 @@ y = row + 0.5
 
 The parser converts `S`, `G`, keys, doors, `.`, and spaces into open floor.
 `#` and colored wall symbols remain static walls. Rows may be ragged; shorter
-rows are padded with walls when maps are stacked into a batch.
+rows are padded with walls.
 
 ## Symbol Table
 
@@ -68,8 +68,7 @@ the color in `state.carried_keys`. Goals are billboard pickup objects too:
 walking near the active goal gives reward `1.0` and ends the episode. If a map
 contains multiple `G` symbols, reset samples exactly one active goal candidate.
 
-Objects are stored in row-major ASCII order. Padded object slots use
-`OBJECT_NONE` when maps with different object counts are batched together.
+Objects are stored in row-major ASCII order.
 
 ## Health Gathering
 
@@ -85,24 +84,25 @@ living reward, 100 death penalty, and a 2100-step timeout.
 ```python
 import jax
 
-from jes import ACTION_MOVE_FORWARD, HealthGatheringEnv
-from jes.maps import MAZE_HEALTH_GATHERING
+from jaxenstein import HEALTH_GATHERING_ACTION_MOVE_FORWARD, make_jaxenstein_env
 
-env = HealthGatheringEnv.from_ascii([MAZE_HEALTH_GATHERING])
+env = make_jaxenstein_env("health-gathering")
 obs, state = env.reset(jax.random.key(0))
-obs, state, reward, done, info = env.step(state, ACTION_MOVE_FORWARD)
+obs, state, reward, done, info = env.step(
+    state, HEALTH_GATHERING_ACTION_MOVE_FORWARD
+)
 ```
 
 Interactive play:
 
 ```bash
-uv run python play.py --maze health-gathering
+uv run jaxenstein-play --maze health-gathering
 ```
 
 ## Actions
 
 ```python
-from jes import (
+from jaxenstein import (
     ACTION_INTERACT,
     ACTION_MOVE_BACKWARD,
     ACTION_MOVE_FORWARD,
@@ -134,12 +134,12 @@ In this map, the agent starts at `S`, picks up the red key `r`, interacts with t
 Interactive play:
 
 ```bash
-uv run python play.py --maze key-door
+uv run jaxenstein-play --maze key-door
 ```
 
 ## MiniGrid KeyCorridor
 
-`jes.maps.MAZE_KEY_CORRIDOR` is a fixed MiniGrid
+`jaxenstein.maps.MAZE_KEY_CORRIDOR` is a fixed MiniGrid
 `MiniGrid-KeyCorridorS4R3-v0`-style map. It uses a 3-by-3 room grid with
 2-by-2 room interiors, a connected middle hallway, colored unlocked doors to
 side rooms, one red key, and one red-locked door guarding the goal. This mirrors
@@ -151,12 +151,12 @@ configuration is
 `30 * room_size**2 = 480`, mirrored by `MAP_EPISODE_HORIZONS_BY_NAME`.
 
 ```bash
-uv run python play.py --maze key-corridor
+uv run jaxenstein-play --maze key-corridor
 ```
 
 ## My Way Home
 
-`jes.maps.MAZE_MY_WAY_HOME` is a large fixed map with 17 spawn points
+`jaxenstein.maps.MAZE_MY_WAY_HOME` is a large fixed map with 17 spawn points
 represented by `S` cells and one goal represented by `G`.
 
 The default `my-way-home` variant uses digit wall symbols for colored wall
@@ -165,16 +165,16 @@ The renderer uses a checker floor pattern and taller walls by default for all
 maps.
 
 `MAP_EPISODE_HORIZONS_BY_NAME` gives My Way Home a 2100-step timeout, and
-`play.py` passes that horizon automatically.
+`jaxenstein-play` passes that horizon automatically.
 
 ```bash
-uv run python play.py --maze my-way-home
-uv run python play.py --maze my-way-home-colorless
+uv run jaxenstein-play --maze my-way-home
+uv run jaxenstein-play --maze my-way-home-colorless
 ```
 
 ## DeepMind Lab Nav Mazes
 
-`jes.dmlab.dmlab_map_to_ascii` converts grid-aligned DMLab `nav_maze` `.map`
+`jaxenstein.maps.dmlab.dmlab_map_to_ascii` converts grid-aligned DMLab `nav_maze` `.map`
 files into ASCII maps. `info_player_start` entities become `S`, explicit
 `goal` entities become `G`, and decal image walls become stable colored wall
 symbols instead of textured patches. Random maps use `apple_reward`
@@ -186,8 +186,8 @@ those to horizons of 1800, 4500, and 9000 for the static and random
 variants.
 
 ```bash
-uv run python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
-uv run python play.py --maze dmlab-static-01
+uv run jaxenstein-convert-dmlab-map path/to/nav_maze_static_01.map
+uv run jaxenstein-play --maze dmlab-static-01
 ```
 
 ## Custom Map Example
@@ -196,7 +196,7 @@ uv run python play.py --maze dmlab-static-01
 import jax
 import jax.numpy as jnp
 
-from jes import ACTION_INTERACT, ACTION_MOVE_FORWARD, RayMazeEnv
+from jaxenstein import ACTION_INTERACT, ACTION_MOVE_FORWARD, RayMazeEnv
 
 CUSTOM = """
 #############
@@ -206,7 +206,7 @@ CUSTOM = """
 #############
 """
 
-env = RayMazeEnv.from_ascii([CUSTOM])
+env = RayMazeEnv.from_ascii(CUSTOM)
 obs, state = env.reset(jax.random.key(0))
 
 obs, state, reward, done, info = env.step(state, ACTION_MOVE_FORWARD)
@@ -227,18 +227,18 @@ Useful state and info fields:
 | `info["opened_door"]` | whether interact opened a door |
 | `info["opened_door_color"]` | opened door color; negative values are unlocked colored doors, positive values are key-locked doors, and `0` means no door opened |
 
-## Batching
+## Vectorization
 
-`RayMazeEnv.from_ascii([...])` accepts multiple maps. Maps may have different sizes and different object counts; smaller maps are padded with walls and missing objects are padded with `OBJECT_NONE`.
+Use `jax.vmap` to run multiple instances of the same environment.
 
 ```python
 import jax
 import jax.numpy as jnp
 
-from jes import ACTION_MOVE_FORWARD, RayMazeEnv
-from jes.maps import MAZE_KEY_DOOR, MAZE_SIMPLE
+from jaxenstein import ACTION_MOVE_FORWARD, RayMazeEnv
+from jaxenstein.maps import MAZE_SIMPLE
 
-env = RayMazeEnv.from_ascii([MAZE_SIMPLE, MAZE_KEY_DOOR])
+env = RayMazeEnv.from_ascii(MAZE_SIMPLE)
 
 keys = jax.random.split(jax.random.key(0), 2)
 obs, states = jax.vmap(env.reset)(keys)

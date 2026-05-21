@@ -1,10 +1,10 @@
 import jax
 import jax.numpy as jnp
 
-from jes.ascii import parse_ascii_maze
-from jes.dmlab import dmlab_decal_symbol, dmlab_map_to_ascii
-from jes.env import RayMazeEnv
-from jes.maps import (
+from jaxenstein.maps.ascii import parse_ascii_maze
+from jaxenstein.maps.dmlab import dmlab_decal_symbol, dmlab_map_to_ascii
+from jaxenstein.env import RayMazeEnv
+from jaxenstein.maps import (
     DMLAB_NAV_MAZE_RANDOM_GOAL_01,
     DMLAB_NAV_MAZE_RANDOM_GOAL_02,
     DMLAB_NAV_MAZE_RANDOM_GOAL_03,
@@ -14,7 +14,7 @@ from jes.maps import (
     MAP_RENDER_KWARGS_BY_NAME,
     MAPS_BY_NAME,
 )
-from jes.objects import COLORED_WALL_SYMBOLS, OBJECT_GOAL, WALL_SYMBOLS
+from jaxenstein.objects import COLORED_WALL_SYMBOLS, OBJECT_GOAL, WALL_SYMBOLS
 
 
 SAMPLE_DMLAB_MAP = """
@@ -152,11 +152,9 @@ def test_dmlab_random_goal_01_uses_apple_rewards_as_goals():
 
 
 def test_dmlab_random_goal_env_activates_one_goal_per_episode():
-    env = RayMazeEnv.from_ascii([DMLAB_NAV_MAZE_RANDOM_GOAL_01])
+    env = RayMazeEnv.from_ascii(DMLAB_NAV_MAZE_RANDOM_GOAL_01)
 
     _, state = env.reset(jax.random.key(0))
-    active_goals = state.object_active & (
-        env.maze_batch.object_type[0] == OBJECT_GOAL
-    )
+    active_goals = state.object_active & (env.maze.object_type == OBJECT_GOAL)
 
     assert int(jnp.sum(active_goals)) == 1

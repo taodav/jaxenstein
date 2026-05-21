@@ -4,14 +4,41 @@ version = "0.1.0"
 description = "First person mazes in JAX"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Ruoyu Tao" },
+]
+keywords = ["jax", "reinforcement-learning", "environments", "maze", "gymnax"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
-    "chex>=0.1.89",
-    "gymnax>=0.0.8",
+    "flax>=0.10.7",
+    "gymnax>=0.0.9",
     "jax>=0.6.2",
     "numpy>=1.26.0",
     "pillow>=11.0.0",
-    "typed-argument-parser>=1.12.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/taodav/jaxenstein"
+Repository = "https://github.com/taodav/jaxenstein"
+Issues = "https://github.com/taodav/jaxenstein/issues"
+
+[project.scripts]
+jaxenstein-play = "jaxenstein.play:main"
+jaxenstein-compare-raycast-speed = "jaxenstein.scripts.compare_raycast_speed:main"
+jaxenstein-convert-dmlab-map = "jaxenstein.scripts.convert_dmlab_map:main"
 
 [project.optional-dependencies]
 cuda12 = [
@@ -25,9 +52,9 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.26,<0.10.0"]
+requires = ["uv-build>=0.9.26,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "jes"
+module-name = "jaxenstein"
 module-root = ""

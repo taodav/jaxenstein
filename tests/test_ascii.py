@@ -1,17 +1,15 @@
 import jax.numpy as jnp
 
-from jes.ascii import parse_ascii_maze, stack_mazes
-from jes.maps import MAZE_KEY_CORRIDOR, MAZE_MY_WAY_HOME, MAZE_MY_WAY_HOME_COLORLESS
-from jes.objects import (
+from jaxenstein.maps.ascii import parse_ascii_maze
+from jaxenstein.maps import MAZE_KEY_CORRIDOR, MAZE_MY_WAY_HOME, MAZE_MY_WAY_HOME_COLORLESS
+from jaxenstein.objects import (
     DOOR_UNLOCKED,
     DOOR_UNLOCKED_YELLOW,
     KEY_COLOR_BLUE,
-    KEY_COLOR_NONE,
     KEY_COLOR_RED,
     KEY_COLOR_YELLOW,
     OBJECT_GOAL,
     OBJECT_KEY,
-    OBJECT_NONE,
 )
 
 
@@ -162,87 +160,6 @@ def test_parse_ascii_maze_colored_wall_symbols():
     assert bool(maze.wall_grid[2, 0])
     assert int(maze.color_grid[0, 0]) != int(maze.color_grid[2, 0])
     assert int(maze.color_grid[1, 1]) == 0
-
-
-def test_stack_mazes_pads_with_walls():
-    small = parse_ascii_maze(
-        """
-        #####
-        #S.G#
-        #####
-        """
-    )
-    wide = parse_ascii_maze(
-        """
-        #######
-        #S...G#
-        #######
-        """
-    )
-
-    batch = stack_mazes([small, wide])
-
-    assert batch.wall_grids.shape == (2, 3, 7)
-    assert bool(batch.wall_grids[0, 0, 6])
-    assert int(batch.color_grids[0, 0, 6]) == 1
-    assert batch.spawn_xy_options.shape == (2, 1, 2)
-    assert jnp.array_equal(batch.spawn_count, jnp.asarray([1, 1], dtype=jnp.int32))
-    assert batch.door_grids.shape == (2, 3, 7)
-    assert batch.object_xy.shape == (2, 1, 2)
-    assert batch.object_type.shape == (2, 1)
-    assert batch.object_color.shape == (2, 1)
-    assert int(batch.object_type[0, 0]) == OBJECT_GOAL
-
-
-def test_stack_mazes_pads_objects_with_none():
-    one_object = parse_ascii_maze(
-        """
-        #####
-        #S.G#
-        #####
-        """
-    )
-    two_objects = parse_ascii_maze(
-        """
-        #####
-        #SrG#
-        #####
-        """
-    )
-
-    batch = stack_mazes([one_object, two_objects])
-
-    assert batch.object_xy.shape == (2, 2, 2)
-    assert batch.object_type.shape == (2, 2)
-    assert int(batch.object_type[0, 0]) == OBJECT_GOAL
-    assert int(batch.object_type[0, 1]) == OBJECT_NONE
-    assert int(batch.object_color[0, 1]) == KEY_COLOR_NONE
-    assert jnp.array_equal(batch.object_type[1], jnp.asarray([OBJECT_KEY, OBJECT_GOAL]))
-
-
-def test_stack_mazes_pads_spawn_options():
-    one_spawn = parse_ascii_maze(
-        """
-        #####
-        #S.G#
-        #####
-        """
-    )
-    two_spawns = parse_ascii_maze(
-        """
-        #######
-        #S.S.G#
-        #######
-        """
-    )
-
-    batch = stack_mazes([one_spawn, two_spawns])
-
-    assert batch.spawn_xy_options.shape == (2, 2, 2)
-    assert jnp.array_equal(batch.spawn_count, jnp.asarray([1, 2], dtype=jnp.int32))
-    assert jnp.allclose(batch.spawn_xy_options[0, 0], jnp.asarray([1.5, 1.5]))
-    assert jnp.allclose(batch.spawn_xy_options[0, 1], jnp.asarray([0.0, 0.0]))
-    assert jnp.allclose(batch.spawn_xy_options[1, 1], jnp.asarray([3.5, 1.5]))
 
 
 def test_key_corridor_requires_key_before_locked_goal():

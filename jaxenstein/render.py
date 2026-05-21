@@ -7,7 +7,7 @@ import colorsys
 import jax
 import jax.numpy as jnp
 
-from jes.objects import (
+from jaxenstein.objects import (
     DOOR_LOCKED_WALL_COLOR_OFFSET,
     DOOR_PANEL_WALL_COLOR_IDS,
     KEY_COLOR_RED,
