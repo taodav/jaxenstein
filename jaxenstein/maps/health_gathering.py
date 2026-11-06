@@ -9,7 +9,6 @@ import jax.numpy as jnp
 import numpy as np
 
 import jaxenstein._struct as struct
-from jaxenstein.maps.ascii import Maze, parse_ascii_maze
 from jaxenstein.maps import (
     HEALTH_GATHERING_ACID_DAMAGE,
     HEALTH_GATHERING_ACID_DAMAGE_INTERVAL,
@@ -22,17 +21,31 @@ from jaxenstein.maps import (
     HEALTH_GATHERING_MAX_MEDKITS,
     HEALTH_GATHERING_MEDKIT_HEAL,
     HEALTH_GATHERING_MEDKIT_SPAWN_INTERVAL,
-    HEALTH_GATHERING_WALL_RGB as _WALL_RGB,
-    HEALTH_GATHERING_FLOOR_RGB as _FLOOR_RGB,
+)
+from jaxenstein.maps import (
     HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB as _FLOOR_CHECKER_DARK_RGB,
+)
+from jaxenstein.maps import (
     HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB as _FLOOR_CHECKER_LIGHT_RGB,
 )
-from jaxenstein.objects import KEY_COLOR_RED, OBJECT_MEDKIT, object_pickup_radius
+from jaxenstein.maps import (
+    HEALTH_GATHERING_FLOOR_RGB as _FLOOR_RGB,
+)
+from jaxenstein.maps import (
+    HEALTH_GATHERING_WALL_RGB as _WALL_RGB,
+)
+from jaxenstein.maps.ascii import Maze, parse_ascii_maze
+from jaxenstein.objects import (
+    OBJECT_MEDKIT,
+    ObjectSpec,
+    compile_object_catalog,
+    object_pickup_radius,
+)
 from jaxenstein.render import (
     DEFAULT_WALL_PALETTE,
     render_first_person,
 )
-
+from jaxenstein.sprites import medkit_sprite
 
 HEALTH_GATHERING_ACTION_TURN_LEFT = 0
 HEALTH_GATHERING_ACTION_TURN_RIGHT = 1
@@ -131,16 +144,13 @@ class HealthGatheringEnv:
         fov: float = jnp.pi / 3.0,
         max_depth: float = 16.0,
         num_depth_samples: int = 128,
-        color_palette: Sequence[
-            Sequence[float]
-        ] | jax.Array = HEALTH_GATHERING_WALL_PALETTE,
+        color_palette: Sequence[Sequence[float]]
+        | jax.Array = HEALTH_GATHERING_WALL_PALETTE,
         floor_rgb: Sequence[float] | jax.Array = HEALTH_GATHERING_FLOOR_RGB,
-        floor_checker_dark_rgb: Sequence[
-            float
-        ] | jax.Array = HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB,
-        floor_checker_light_rgb: Sequence[
-            float
-        ] | jax.Array = HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB,
+        floor_checker_dark_rgb: Sequence[float]
+        | jax.Array = HEALTH_GATHERING_FLOOR_CHECKER_DARK_RGB,
+        floor_checker_light_rgb: Sequence[float]
+        | jax.Array = HEALTH_GATHERING_FLOOR_CHECKER_LIGHT_RGB,
         wall_height_scale: float = 1.35,
         floor_pattern: bool = True,
         gamma: float = 0.99,
@@ -180,12 +190,10 @@ class HealthGatheringEnv:
             ),
         )
         self.floor_xy_options, self.floor_count = _floor_options(maze)
-        self._medkit_type = jnp.full(
-            (self.max_medkits,), OBJECT_MEDKIT, dtype=jnp.int32
+        self.object_catalog = compile_object_catalog(
+            ("medkit",), {"medkit": ObjectSpec(medkit_sprite, pickup_radius=0.60)}
         )
-        self._medkit_color = jnp.full(
-            (self.max_medkits,), KEY_COLOR_RED, dtype=jnp.int32
-        )
+        self._medkit_sprite_ids = jnp.zeros((self.max_medkits,), dtype=jnp.int32)
 
     @classmethod
     def from_ascii(cls, ascii_maze: str, **kwargs) -> "HealthGatheringEnv":
@@ -268,8 +276,8 @@ class HealthGatheringEnv:
         pos = jnp.where(blocked, state.pos, proposed_pos)
 
         medkit_distances = jnp.linalg.norm(state.medkit_xy - pos[None, :], axis=-1)
-        picked_medkits = active & state.medkit_active & (
-            medkit_distances < params.medkit_radius
+        picked_medkits = (
+            active & state.medkit_active & (medkit_distances < params.medkit_radius)
         )
         picked_medkit = jnp.any(picked_medkits)
         medkit_active = state.medkit_active & ~picked_medkits
@@ -286,8 +294,7 @@ class HealthGatheringEnv:
             & (jnp.mod(t, acid_damage_interval) == 0)
         )
         health = jnp.maximum(
-            health_after_pickup
-            - jnp.where(takes_acid_damage, params.acid_damage, 0.0),
+            health_after_pickup - jnp.where(takes_acid_damage, params.acid_damage, 0.0),
             0.0,
         )
         died = active & (health <= 0.0)
@@ -366,8 +373,8 @@ class HealthGatheringEnv:
             floor_checker_dark_rgb=self.floor_checker_dark_rgb,
             floor_checker_light_rgb=self.floor_checker_light_rgb,
             object_xy=state.medkit_xy,
-            object_type=self._medkit_type,
-            object_color=self._medkit_color,
+            object_sprite=self._medkit_sprite_ids,
+            sprite_atlas=self.object_catalog.sprites,
             object_active=state.medkit_active,
             wall_height_scale=self.wall_height_scale,
             floor_pattern=self.floor_pattern,

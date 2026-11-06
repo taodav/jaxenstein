@@ -16,16 +16,14 @@ from jaxenstein.maps import (
     MAP_REWARD_KWARGS_BY_NAME,
     MAPS_BY_NAME,
 )
+from jaxenstein.maps.dmlab_random_goal import DMLabRandomGoalEnv
 from jaxenstein.maps.health_gathering import (
     HealthGatheringEnv,
     HealthGatheringParams,
 )
 
-
 JAXENSTEIN_ENV_IDS = tuple(sorted((*MAPS_BY_NAME, *HEALTH_GATHERING_MAPS_BY_NAME)))
-_HEALTH_GATHERING_PARAM_NAMES = frozenset(
-    HealthGatheringParams.__dataclass_fields__
-)
+_HEALTH_GATHERING_PARAM_NAMES = frozenset(HealthGatheringParams.__dataclass_fields__)
 
 
 def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGatheringEnv:
@@ -48,13 +46,29 @@ def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGather
 
     if env_id in MAPS_BY_NAME:
         env_kwargs = {
+            "randomize_spawn_heading": env_id.startswith("dmlab-"),
             "episode_horizon": MAP_EPISODE_HORIZONS_BY_NAME.get(env_id),
             **MAP_REWARD_KWARGS_BY_NAME.get(env_id, {}),
             **MAP_RENDER_KWARGS_BY_NAME.get(env_id, {}),
             "gamma": MAP_DISCOUNT_GAMMAS_BY_NAME.get(env_id, DEFAULT_DISCOUNT_GAMMA),
             **kwargs,
         }
-        return RayMazeEnv.from_ascii(MAPS_BY_NAME[env_id], **env_kwargs)
+        if env_id.startswith("dmlab-"):
+            from jaxenstein.maps.dmlab import dmlab_object_types
+            from jaxenstein.maps.dmlab_entities import DMLAB_OBJECTS_BY_NAME
+
+            defaults = dmlab_object_types(
+                apple_reward=env_kwargs.pop("apple_reward", 1.0)
+            )
+            env_kwargs["object_types"] = {
+                **defaults,
+                **(env_kwargs.get("object_types") or {}),
+            }
+            env_kwargs.setdefault("objects", DMLAB_OBJECTS_BY_NAME[env_id])
+        env_cls = (
+            DMLabRandomGoalEnv if env_id.startswith("dmlab-random-") else RayMazeEnv
+        )
+        return env_cls.from_ascii(MAPS_BY_NAME[env_id], **env_kwargs)
 
     raise ValueError(
         f"unknown env_id {env_id!r}; expected one of {list(JAXENSTEIN_ENV_IDS)}"

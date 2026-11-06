@@ -94,7 +94,7 @@ def main() -> None:
     parser.add_argument("--theta", type=float, default=0.0)
     args = parser.parse_args()
 
-    maze = parse_ascii_maze(MAPS_BY_NAME[args.map])
+    maze = parse_ascii_maze(MAPS_BY_NAME[args.map], require_goal=False)
     spawn_count = int(maze.spawn_count)
     spawn_index = max(0, min(args.spawn_index, spawn_count - 1))
     pos = maze.spawn_xy_options[spawn_index]
