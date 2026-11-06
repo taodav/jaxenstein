@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import jax
+
 from jaxenstein.env import RayMazeEnv
 from jaxenstein.maps import (
     DEFAULT_DISCOUNT_GAMMA,
@@ -28,6 +30,14 @@ _HEALTH_GATHERING_PARAM_NAMES = frozenset(HealthGatheringParams.__dataclass_fiel
 
 def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGatheringEnv:
     """Create a JAXenstein environment from a registered environment ID."""
+
+    # Catalog construction validates static arrays on the CPU. Training code
+    # may call this factory while tracing its enclosing JIT/vmap function.
+    with jax.ensure_compile_time_eval():
+        return _make_jaxenstein_env(env_id, **kwargs)
+
+
+def _make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGatheringEnv:
 
     if env_id in HEALTH_GATHERING_MAPS_BY_NAME:
         params = kwargs.pop("params", None)
@@ -58,7 +68,8 @@ def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGather
             from jaxenstein.maps.dmlab_entities import DMLAB_OBJECTS_BY_NAME
 
             defaults = dmlab_object_types(
-                apple_reward=env_kwargs.pop("apple_reward", 1.0)
+                apple_reward=env_kwargs.pop("apple_reward", 1.0),
+                goal_reward=env_kwargs.get("goal_reward", 1.0),
             )
             env_kwargs["object_types"] = {
                 **defaults,

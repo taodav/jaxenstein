@@ -296,13 +296,26 @@ class RayMazeEnv:
         catalog = self.object_catalog
         type_ids = self.object_type_ids(state)
         if self._has_objects:
-            radii = catalog.pickup_radii[type_ids]
-            if self._uses_param_goal_radius:
-                radii = jnp.where(
-                    self._param_goal_radius[type_ids], params.goal_radius, radii
+            offsets = pos[None, :] - self.maze.object_xy
+            if catalog.has_radius_pickups:
+                radii = catalog.pickup_radii[type_ids]
+                if self._uses_param_goal_radius:
+                    radii = jnp.where(
+                        self._param_goal_radius[type_ids], params.goal_radius, radii
+                    )
+                in_range = jnp.linalg.norm(offsets, axis=-1) < radii
+            if catalog.has_box_pickups:
+                in_box = jnp.all(
+                    (offsets >= catalog.pickup_mins[type_ids])
+                    & (offsets <= catalog.pickup_maxs[type_ids]),
+                    axis=-1,
                 )
-            distances = jnp.linalg.norm(self.maze.object_xy - pos[None, :], axis=-1)
-            picked_objects = active & state.object_active & (distances < radii)
+                in_range = (
+                    jnp.where(catalog.box_pickups[type_ids], in_box, in_range)
+                    if catalog.has_radius_pickups
+                    else in_box
+                )
+            picked_objects = active & state.object_active & in_range
             object_active = state.object_active & ~(
                 picked_objects & catalog.consume[type_ids]
             )
