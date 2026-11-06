@@ -83,8 +83,8 @@ The DMLab converter preserves apples even when a map contains a goal, and uses
 apple candidates, so inspect these with
 `parse_ascii_maze(ascii_map, require_goal=False)`. Create playable random-goal
 levels with `make_jaxenstein_env("dmlab-random-01")`; the factory selects a goal,
-scattered apples, and a distant start at reset. See the repository README for
-the source rules and counts.
+scattered apples, and a distant start at reset. See the module documentation in
+[dmlab.py](dmlab.py) for the source rules and counts.
 
 ## Health Gathering
 
