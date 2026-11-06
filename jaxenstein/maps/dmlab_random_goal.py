@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import replace
 
 import jax
 import jax.numpy as jnp
@@ -10,12 +11,7 @@ import numpy as np
 
 from jaxenstein.env import RayMazeEnv, State
 from jaxenstein.maps.ascii import Maze, parse_ascii_maze
-from jaxenstein.objects import (
-    KEY_COLOR_YELLOW,
-    NUM_KEY_COLORS,
-    OBJECT_APPLE,
-    OBJECT_GOAL,
-)
+from jaxenstein.objects import NUM_KEY_COLORS
 
 
 class DMLabRandomGoalEnv(RayMazeEnv):
@@ -29,7 +25,7 @@ class DMLabRandomGoalEnv(RayMazeEnv):
     def __init__(self, maze: Maze, *, scattered_reward_density: float = 0.1, **kwargs):
         if not 0.0 <= scattered_reward_density <= 1.0:
             raise ValueError("scattered_reward_density must be between zero and one")
-        if not np.all(np.asarray(maze.object_type) == OBJECT_APPLE):
+        if any(name != "apple" for name in maze.object_names):
             raise ValueError("random-goal maps must contain only apple candidates")
         self._candidate_count = len(maze.object_type)
         if self._candidate_count < 2:
@@ -39,23 +35,44 @@ class DMLabRandomGoalEnv(RayMazeEnv):
         )
         self.scattered_reward_density = float(scattered_reward_density)
         self._spawn_eligible = jnp.asarray(_eligible_starts(maze))
-        super().__init__(maze, **kwargs)
+        if self._fruit_count == 0:
+            # These slots can only be goals. Do not build/transfer an unused
+            # fruit sprite or carry fruit properties into the compiled program.
+            maze = replace(maze, object_names=("goal",) * self._candidate_count)
+        possible = tuple(kwargs.pop("possible_object_types", ()))
+        super().__init__(maze, possible_object_types=(*possible, "goal"), **kwargs)
+        self._goal_type_id = self.object_catalog.id("goal")
+        self._fruit_type_id = (
+            self.object_catalog.id("apple") if self._fruit_count else self._goal_type_id
+        )
 
     @classmethod
-    def from_ascii(cls, ascii_maze: str, **kwargs) -> "DMLabRandomGoalEnv":
-        return cls(parse_ascii_maze(ascii_maze, require_goal=False), **kwargs)
+    def from_ascii(
+        cls, ascii_maze: str, *, objects=(), object_symbols=None, **kwargs
+    ) -> "DMLabRandomGoalEnv":
+        return cls(
+            parse_ascii_maze(
+                ascii_maze,
+                require_goal=False,
+                objects=objects,
+                object_symbols=object_symbols,
+            ),
+            **kwargs,
+        )
 
     def _reset_state(self, key: jax.Array) -> State:
         goal_key, fruit_key, spawn_key, heading_key = jax.random.split(key, 4)
         goal_idx = jax.random.randint(goal_key, (), 0, self._candidate_count)
-        # A uniform permutation, with the goal moved to the end, gives a
-        # uniform fixed-size subset of the non-goal locations.
-        order = jax.random.permutation(fruit_key, self._candidate_count)
-        ranks = jnp.argsort(order)
-        ranks = ranks - (ranks > ranks[goal_idx])
-        fruit_mask = (ranks < self._fruit_count) & (
-            jnp.arange(self._candidate_count) != goal_idx
-        )
+        if self._fruit_count:
+            # Uniformly sample a fixed-size subset excluding the goal.
+            order = jax.random.permutation(fruit_key, self._candidate_count)
+            ranks = jnp.argsort(order)
+            ranks = ranks - (ranks > ranks[goal_idx])
+            fruit_mask = (ranks < self._fruit_count) & (
+                jnp.arange(self._candidate_count) != goal_idx
+            )
+        else:
+            fruit_mask = jnp.zeros((self._candidate_count,), dtype=jnp.bool_)
         eligible = self._spawn_eligible[goal_idx]
         spawn_rank = jax.random.randint(spawn_key, (), 0, jnp.sum(eligible))
         spawn_idx = jnp.argmax(eligible & (jnp.cumsum(eligible) == spawn_rank + 1))
@@ -70,16 +87,11 @@ class DMLabRandomGoalEnv(RayMazeEnv):
             door_open=jnp.zeros_like(self.maze.door_grid, dtype=jnp.bool_),
         )
 
-    def _object_types(self, state: State) -> jax.Array:
+    def object_type_ids(self, state: State) -> jax.Array:
+        if not self._fruit_count:
+            return self._initial_type_ids
         at_goal = jnp.all(self.maze.object_xy == state.goal_xy, axis=-1)
-        return jnp.where(at_goal, OBJECT_GOAL, self.maze.object_type)
-
-    def _object_colors(self, state: State) -> jax.Array:
-        return jnp.where(
-            self._object_types(state) == OBJECT_GOAL,
-            KEY_COLOR_YELLOW,
-            self.maze.object_color,
-        )
+        return jnp.where(at_goal, self._goal_type_id, self._fruit_type_id)
 
 
 def _eligible_starts(maze: Maze) -> np.ndarray:

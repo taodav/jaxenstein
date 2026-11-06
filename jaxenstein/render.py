@@ -12,14 +12,10 @@ from jaxenstein.objects import (
     DOOR_PANEL_WALL_COLOR_IDS,
     KEY_COLOR_RED,
     KEY_COLOR_YELLOW,
-    OBJECT_APPLE,
     OBJECT_GOAL,
-    OBJECT_KEY,
-    OBJECT_MEDKIT,
     OBJECT_NONE,
-    OBJECT_CORE_PALETTE_BY_COLOR,
-    OBJECT_EDGE_PALETTE_BY_COLOR,
 )
+from jaxenstein.sprites import legacy_sprite_atlas
 
 
 def _make_wall_palette(size: int = 96) -> jax.Array:
@@ -242,6 +238,10 @@ def render_first_person(
     object_type: jax.Array | None = None,
     object_color: jax.Array | None = None,
     object_active: jax.Array | None = None,
+    object_sprite: jax.Array | None = None,
+    sprite_atlas: jax.Array | None = None,
+    sprite_width_scales: jax.Array | None = None,
+    sprite_height_scales: jax.Array | None = None,
     goal_xy: jax.Array | None = None,
     color_palette: jax.Array = DEFAULT_WALL_PALETTE,
     floor_rgb: jax.Array = FLOOR_RGB,
@@ -321,12 +321,18 @@ def render_first_person(
         object_active = jnp.asarray([True])
 
     if object_xy is not None:
-        if object_type is None:
-            raise ValueError("object_type is required when object_xy is provided")
-        if object_color is None:
+        if object_sprite is None and object_type is None:
+            raise ValueError(
+                "object_sprite or legacy object_type is required with object_xy"
+            )
+        if object_color is None and object_type is not None:
             object_color = jnp.full_like(object_type, KEY_COLOR_RED)
         if object_active is None:
-            object_active = object_type != OBJECT_NONE
+            object_active = (
+                jnp.ones(object_xy.shape[0], dtype=jnp.bool_)
+                if object_sprite is not None
+                else object_type != OBJECT_NONE
+            )
         rgb = render_billboard_sprites(
             rgb,
             pos,
@@ -339,6 +345,10 @@ def render_first_person(
             img_h=img_h,
             img_w=img_w,
             fov=fov,
+            object_sprite=object_sprite,
+            sprite_atlas=sprite_atlas,
+            sprite_width_scales=sprite_width_scales,
+            sprite_height_scales=sprite_height_scales,
         )
     return jnp.clip(rgb, 0, 255).astype(jnp.uint8)
 
@@ -399,140 +409,80 @@ def render_billboard_sprites(
     pos: jax.Array,
     theta: jax.Array,
     object_xy: jax.Array,
-    object_type: jax.Array,
-    object_color: jax.Array,
+    object_type: jax.Array | None,
+    object_color: jax.Array | None,
     object_active: jax.Array,
     wall_depth: jax.Array,
     *,
     img_h: int,
     img_w: int,
     fov: float,
+    object_sprite: jax.Array | None = None,
+    sprite_atlas: jax.Array | None = None,
+    sprite_width_scales: jax.Array | None = None,
+    sprite_height_scales: jax.Array | None = None,
 ) -> jax.Array:
-    """Composite camera-facing object sprites over an RGB raycast image."""
-
+    """Composite cutout RGBA textures without any object-specific drawing."""
+    count = object_xy.shape[0]
+    if count == 0:
+        return rgb
+    if sprite_atlas is None:
+        if object_type is None or object_color is None:
+            raise ValueError(
+                "Supply an atlas and sprite IDs, or legacy type/color arrays"
+            )
+        sprite_atlas = jnp.asarray(legacy_sprite_atlas())
+        object_sprite = object_type * 4 + object_color
+    if object_sprite is None:
+        raise ValueError("object_sprite is required with sprite_atlas")
     rel = object_xy - pos[None, :]
     forward = jnp.asarray([jnp.cos(theta), jnp.sin(theta)], dtype=jnp.float32)
     right = jnp.asarray([-jnp.sin(theta), jnp.cos(theta)], dtype=jnp.float32)
     forward_depth = rel @ forward
     right_depth = rel @ right
-
-    half_fov_tan = jnp.tan(fov / 2.0)
-    screen_x = right_depth / jnp.maximum(forward_depth * half_fov_tan, 1.0e-3)
+    screen_x = right_depth / jnp.maximum(forward_depth * jnp.tan(fov / 2.0), 1.0e-3)
     center_col = (screen_x + 1.0) * 0.5 * (img_w - 1)
-    center_row = img_h * 0.50
-    sprite_h = jnp.clip(img_h * 0.85 / jnp.maximum(forward_depth, 1.0e-3), 3.0, img_h)
-    sprite_w = jnp.clip(sprite_h * 0.58, 3.0, img_w)
-
+    width_scale = (
+        0.58 if sprite_width_scales is None else sprite_width_scales[object_sprite]
+    )
+    height_scale = (
+        0.85 if sprite_height_scales is None else sprite_height_scales[object_sprite]
+    )
+    sprite_h = jnp.clip(
+        img_h * height_scale / jnp.maximum(forward_depth, 1.0e-3), 3.0, img_h
+    )
+    sprite_w = jnp.clip(sprite_h * width_scale, 3.0, img_w)
     rows = jnp.arange(img_h, dtype=jnp.float32)[None, :, None]
     cols = jnp.arange(img_w, dtype=jnp.float32)[None, None, :]
     dx = (cols - center_col[:, None, None]) / jnp.maximum(
         sprite_w[:, None, None] * 0.5, 1.0
     )
-    dy = (rows - center_row) / jnp.maximum(sprite_h[:, None, None] * 0.5, 1.0)
-    radius_sq = dx**2 + dy**2
-
-    goal_mask = radius_sq <= 1.0
-    goal_core = (radius_sq <= 0.32) | (jnp.abs(dx) < 0.16)
-
-    medkit_mask = (jnp.abs(dx) <= 0.78) & (jnp.abs(dy) <= 0.52)
-    medkit_core = ((jnp.abs(dx) <= 0.15) & (jnp.abs(dy) <= 0.42)) | (
-        (jnp.abs(dy) <= 0.15) & (jnp.abs(dx) <= 0.48)
+    dy = (rows - img_h * 0.5) / jnp.maximum(sprite_h[:, None, None] * 0.5, 1.0)
+    texture_h, texture_w = sprite_atlas.shape[1:3]
+    u = jnp.clip(
+        jnp.floor((dx + 1) * 0.5 * texture_w).astype(jnp.int32), 0, texture_w - 1
     )
-
-    # A lobed red fruit with a notch, brown stem, and green leaf. These
-    # procedural masks use the same billboard/depth path as keys and goals.
-    apple_body = (((dx + 0.27) / 0.62) ** 2 + ((dy - 0.12) / 0.70) ** 2 <= 1.0) | (
-        ((dx - 0.27) / 0.62) ** 2 + ((dy - 0.12) / 0.70) ** 2 <= 1.0
+    v = jnp.clip(
+        jnp.floor((dy + 1) * 0.5 * texture_h).astype(jnp.int32), 0, texture_h - 1
     )
-    apple_notch = (jnp.abs(dx) < 0.16) & (dy < -0.42)
-    apple_body = apple_body & ~apple_notch
-    apple_stem = (jnp.abs(dx + 0.03) < 0.09) & (dy > -0.96) & (dy < -0.38)
-    apple_leaf = ((dx - 0.27) / 0.30) ** 2 + ((dy + 0.72) / 0.14) ** 2 <= 1.0
-    apple_mask = apple_body | apple_stem | apple_leaf
-    apple_core = ((dx + 0.32) / 0.18) ** 2 + ((dy + 0.12) / 0.27) ** 2 <= 1.0
-
-    head_dist = (dx + 0.48) ** 2 + (dy + 0.02) ** 2
-    key_head = (head_dist <= 0.32**2) & (head_dist >= 0.17**2)
-    key_head_core = (head_dist <= 0.26**2) & (head_dist >= 0.21**2)
-    key_shaft = (dx > -0.22) & (dx < 0.56) & (jnp.abs(dy + 0.02) < 0.085)
-    key_shaft_core = (dx > -0.16) & (dx < 0.50) & (jnp.abs(dy + 0.02) < 0.040)
-    key_bit = (dx > 0.32) & (dx < 0.62) & (dy > 0.02) & (dy < 0.21)
-    key_bit_notch = (dx > 0.44) & (dx < 0.53) & (dy > 0.11) & (dy < 0.23)
-    key_bit_core = (dx > 0.38) & (dx < 0.57) & (dy > 0.05) & (dy < 0.16)
-    key_mask = key_head | key_shaft | (key_bit & ~key_bit_notch)
-    key_core = key_head_core | key_shaft_core | key_bit_core
-
-    is_key = object_type[:, None, None] == OBJECT_KEY
-    is_medkit = object_type[:, None, None] == OBJECT_MEDKIT
-    is_apple = object_type[:, None, None] == OBJECT_APPLE
-    object_mask = jnp.where(
-        is_key,
-        key_mask,
-        jnp.where(is_medkit, medkit_mask, jnp.where(is_apple, apple_mask, goal_mask)),
-    )
-    core_mask = jnp.where(
-        is_key,
-        key_core,
-        jnp.where(is_medkit, medkit_core, jnp.where(is_apple, apple_core, goal_core)),
-    )
-    visible = (
-        object_active
-        & (object_type != OBJECT_NONE)
-        & (forward_depth > 0.05)
-        & (jnp.abs(screen_x) < 1.35)
-    )
+    alpha = sprite_atlas[..., 3][object_sprite[:, None, None], v, u]
+    visible = object_active & (forward_depth > 0.05) & (jnp.abs(screen_x) < 1.35)
     not_occluded = forward_depth[:, None, None] < (wall_depth[None, None, :] - 0.05)
-    sprite_mask = object_mask & visible[:, None, None] & not_occluded
-
-    sprite_depth = jnp.where(sprite_mask, forward_depth[:, None, None], jnp.inf)
-    nearest_idx = jnp.argmin(sprite_depth, axis=0)
-    nearest_depth = jnp.take_along_axis(sprite_depth, nearest_idx[None, :, :], axis=0)[
-        0
-    ]
-    has_sprite = jnp.isfinite(nearest_depth)
-
-    nearest_type = jnp.take(object_type, nearest_idx, mode="clip")
-    nearest_core = jnp.take_along_axis(core_mask, nearest_idx[None, :, :], axis=0)[0]
-    nearest_color = jnp.take(object_color, nearest_idx, mode="clip")
-    edge_rgb = jnp.take(
-        OBJECT_EDGE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip"
+    mask = (
+        (jnp.abs(dx) <= 1)
+        & (jnp.abs(dy) <= 1)
+        & (alpha != 0)
+        & visible[:, None, None]
+        & not_occluded
     )
-    core_rgb = jnp.take(
-        OBJECT_CORE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip"
-    )
-    key_edge_rgb = jnp.asarray([44, 28, 24], dtype=jnp.float32)
-    medkit_edge_rgb = jnp.asarray([238, 238, 222], dtype=jnp.float32)
-    medkit_core_rgb = jnp.asarray([214, 28, 28], dtype=jnp.float32)
-    edge_rgb = jnp.where(nearest_type[..., None] == OBJECT_KEY, key_edge_rgb, edge_rgb)
-    edge_rgb = jnp.where(
-        nearest_type[..., None] == OBJECT_MEDKIT,
-        medkit_edge_rgb,
-        edge_rgb,
-    )
-    core_rgb = jnp.where(
-        nearest_type[..., None] == OBJECT_MEDKIT,
-        medkit_core_rgb,
-        core_rgb,
-    )
-    sprite_rgb = jnp.where(nearest_core[..., None], core_rgb, edge_rgb)
-    nearest_leaf = jnp.take_along_axis(apple_leaf, nearest_idx[None, :, :], axis=0)[0]
-    nearest_stem = jnp.take_along_axis(apple_stem, nearest_idx[None, :, :], axis=0)[0]
-    apple_rgb = jnp.where(
-        nearest_core[..., None],
-        jnp.asarray([255, 126, 99], dtype=jnp.float32),
-        jnp.asarray([214, 38, 36], dtype=jnp.float32),
-    )
-    apple_rgb = jnp.where(
-        nearest_stem[..., None],
-        jnp.asarray([104, 62, 27], dtype=jnp.float32),
-        apple_rgb,
-    )
-    apple_rgb = jnp.where(
-        nearest_leaf[..., None],
-        jnp.asarray([64, 160, 48], dtype=jnp.float32),
-        apple_rgb,
-    )
-    sprite_rgb = jnp.where(
-        nearest_type[..., None] == OBJECT_APPLE, apple_rgb, sprite_rgb
-    )
-    return jnp.where(has_sprite[..., None], sprite_rgb, rgb)
+    depths = jnp.where(mask, forward_depth[:, None, None], jnp.inf)
+    nearest = jnp.argmin(depths, axis=0)
+    nearest_depth = jnp.take_along_axis(depths, nearest[None], axis=0)[0]
+    nearest_u = jnp.take_along_axis(
+        jnp.broadcast_to(u, mask.shape), nearest[None], axis=0
+    )[0]
+    nearest_v = jnp.take_along_axis(
+        jnp.broadcast_to(v, mask.shape), nearest[None], axis=0
+    )[0]
+    sprite_rgb = sprite_atlas[object_sprite[nearest], nearest_v, nearest_u, :3]
+    return jnp.where(jnp.isfinite(nearest_depth)[..., None], sprite_rgb, rgb)

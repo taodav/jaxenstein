@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import textwrap
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 import jax
 import jax.numpy as jnp
@@ -11,10 +12,12 @@ import numpy as np
 
 from jaxenstein.objects import (
     DOOR_SYMBOLS,
-    OBJECT_GOAL,
+    KEY_COLOR_NONE,
+    OBJECT_NAMES_BY_SYMBOL,
+    OBJECT_NONE,
     OBJECT_SYMBOLS,
-    SPAWN_SYMBOLS,
     WALL_SYMBOLS,
+    ObjectPlacement,
 )
 
 
@@ -31,6 +34,8 @@ class Maze:
     object_type: jax.Array
     object_color: jax.Array
     door_grid: jax.Array
+    object_names: tuple[str, ...] = ()
+    object_initial_active: jax.Array | None = None
 
 
 def _clean_ascii(ascii_maze: str) -> list[str]:
@@ -44,7 +49,12 @@ def _clean_ascii(ascii_maze: str) -> list[str]:
 
 
 def parse_ascii_maze(
-    ascii_maze: str, *, wall_color_id: int = 1, require_goal: bool = True
+    ascii_maze: str,
+    *,
+    wall_color_id: int = 1,
+    require_goal: bool = True,
+    objects: Sequence[ObjectPlacement] = (),
+    object_symbols: Mapping[str, str] | None = None,
 ) -> Maze:
     """Parse an ASCII maze into JAX arrays.
 
@@ -52,6 +62,14 @@ def parse_ascii_maze(
     is the row index + 0.5.
     """
 
+    symbols = {**OBJECT_NAMES_BY_SYMBOL, **(object_symbols or {})}
+    if any(
+        len(symbol) != 1 or symbol in DOOR_SYMBOLS or symbol == "S"
+        for symbol in symbols
+    ):
+        raise ValueError(
+            "Object symbols must be single characters distinct from doors and S"
+        )
     rows = _clean_ascii(ascii_maze)
     height = len(rows)
     width = max(len(row) for row in rows)
@@ -64,10 +82,10 @@ def parse_ascii_maze(
     object_xy: list[np.ndarray] = []
     object_type: list[int] = []
     object_color: list[int] = []
+    object_names: list[str] = []
+    object_initial_active: list[bool] = []
 
-    allowed = (
-        {".", "S", " "} | set(WALL_SYMBOLS) | set(OBJECT_SYMBOLS) | set(DOOR_SYMBOLS)
-    )
+    allowed = {".", "S", " "} | set(WALL_SYMBOLS) | set(symbols) | set(DOOR_SYMBOLS)
     for row_idx, row in enumerate(rows):
         for col_idx, char in enumerate(row):
             if char not in allowed:
@@ -78,7 +96,7 @@ def parse_ascii_maze(
                 color_grid[row_idx, col_idx] = 0
                 door_grid[row_idx, col_idx] = DOOR_SYMBOLS[char]
                 continue
-            elif char in WALL_SYMBOLS:
+            elif char in WALL_SYMBOLS and char not in symbols:
                 color_grid[row_idx, col_idx] = WALL_SYMBOLS[char]
                 continue
 
@@ -86,16 +104,42 @@ def parse_ascii_maze(
             color_grid[row_idx, col_idx] = 0
             xy = np.array([col_idx + 0.5, row_idx + 0.5], dtype=np.float32)
 
-            if char in SPAWN_SYMBOLS:
+            if char == "S":
                 spawn_xy_options.append(xy)
-            if char in OBJECT_SYMBOLS:
-                kind, color = OBJECT_SYMBOLS[char]
+            if char in symbols:
                 object_xy.append(xy)
-                object_type.append(kind)
-                object_color.append(color)
-                if kind == OBJECT_GOAL:
-                    if goal_xy is None:
-                        goal_xy = xy
+                object_names.append(symbols[char])
+                object_initial_active.append(True)
+
+    for obj in objects:
+        if not isinstance(obj, ObjectPlacement):
+            raise TypeError("objects must contain ObjectPlacement values")
+        xy = np.asarray(obj.pos, dtype=np.float32)
+        if xy.shape != (2,) or not np.all(np.isfinite(xy)):
+            raise ValueError("Object positions must be finite (x, y) pairs")
+        col, row = np.floor(xy).astype(int)
+        if not (0 <= col < width and 0 <= row < height) or wall_grid[row, col]:
+            raise ValueError(f"Object {obj.kind!r} must be placed on open floor")
+        object_xy.append(xy)
+        object_names.append(obj.kind)
+        object_initial_active.append(bool(obj.active))
+
+    order = sorted(
+        range(len(object_xy)), key=lambda i: (object_xy[i][1], object_xy[i][0])
+    )
+    object_xy = [object_xy[i] for i in order]
+    object_names = [object_names[i] for i in order]
+    object_initial_active = [object_initial_active[i] for i in order]
+    legacy = {
+        OBJECT_NAMES_BY_SYMBOL[symbol]: value
+        for symbol, value in OBJECT_SYMBOLS.items()
+    }
+    for name, xy in zip(object_names, object_xy):
+        kind, color = legacy.get(name, (OBJECT_NONE, KEY_COLOR_NONE))
+        object_type.append(kind)
+        object_color.append(color)
+        if name == "goal" and goal_xy is None:
+            goal_xy = xy
 
     if not spawn_xy_options:
         raise ValueError("maze must contain at least one spawn")
@@ -121,4 +165,6 @@ def parse_ascii_maze(
         object_type=jnp.asarray(object_type, dtype=jnp.int32),
         object_color=jnp.asarray(object_color, dtype=jnp.int32),
         door_grid=jnp.asarray(door_grid),
+        object_names=tuple(object_names),
+        object_initial_active=jnp.asarray(object_initial_active, dtype=jnp.bool_),
     )

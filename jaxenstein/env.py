@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 import jaxenstein._struct as struct
 from jaxenstein.maps.ascii import Maze, parse_ascii_maze
 from jaxenstein.objects import (
     DOOR_LOCKED_WALL_COLOR_OFFSET,
     KEY_COLOR_NONE,
+    KEY_COLOR_YELLOW,
     NUM_KEY_COLORS,
-    OBJECT_APPLE,
     OBJECT_GOAL,
     OBJECT_KEY,
     OBJECT_NONE,
+    ObjectPlacement,
+    ObjectSpec,
+    compile_object_catalog,
     door_wall_color_id,
-    object_pickup_radius,
 )
 from jaxenstein.render import (
     DEFAULT_WALL_PALETTE,
@@ -27,7 +30,6 @@ from jaxenstein.render import (
     FLOOR_RGB,
     render_first_person,
 )
-
 
 ACTION_TURN_LEFT = 0
 ACTION_TURN_RIGHT = 1
@@ -89,10 +91,11 @@ class RayMazeEnv:
         wall_height_scale: float = 1.35,
         floor_pattern: bool = True,
         goal_reward: float | jax.Array = 1.0,
-        apple_reward: float | jax.Array = 1.0,
         living_reward: float | jax.Array = 0.0,
         gamma: float = 0.99,
         randomize_spawn_heading: bool = False,
+        object_types: Mapping[str, ObjectSpec] | None = None,
+        possible_object_types: Sequence[str] = (),
     ):
         self.maze = maze
         self.params = EnvParams() if params is None else params
@@ -112,18 +115,80 @@ class RayMazeEnv:
         self.wall_height_scale = wall_height_scale
         self.floor_pattern = floor_pattern
         self.goal_reward = jnp.asarray(goal_reward, dtype=jnp.float32)
-        self.apple_reward = jnp.asarray(apple_reward, dtype=jnp.float32)
         self.living_reward = jnp.asarray(living_reward, dtype=jnp.float32)
         self.gamma = float(gamma)
         self.randomize_spawn_heading = bool(randomize_spawn_heading)
+        names = maze.object_names
+        if not names and len(maze.object_type):
+            # Compatibility for externally constructed Maze values.
+            key_names = {1: "red_key", 2: "blue_key", 3: "yellow_key"}
+            names = tuple(
+                "goal" if int(kind) == OBJECT_GOAL else key_names[int(color)]
+                for kind, color in zip(
+                    np.asarray(maze.object_type), np.asarray(maze.object_color)
+                )
+            )
+        self.object_catalog = compile_object_catalog(
+            (*names, *possible_object_types),
+            object_types,
+            goal_reward=float(goal_reward),
+        )
+        self._initial_type_ids = jnp.asarray(
+            [self.object_catalog.id(name) for name in names], dtype=jnp.int32
+        )
+        self._initial_active = (
+            jnp.ones((len(names),), dtype=jnp.bool_)
+            if maze.object_initial_active is None
+            else maze.object_initial_active
+        )
+        self._has_objects = bool(names)
+        self._has_doors = bool(np.any(np.asarray(maze.door_grid)))
+        self._goal_candidates = (
+            self.object_catalog.is_goal[self._initial_type_ids]
+            if names
+            else jnp.zeros((0,), dtype=jnp.bool_)
+        )
+        self._has_goal_candidates = bool(np.any(np.asarray(self._goal_candidates)))
+        self._param_goal_radius = jnp.asarray(
+            [
+                name == "goal" and (object_types is None or name not in object_types)
+                for name in self.object_catalog.names
+            ]
+        )
+        self._uses_param_goal_radius = bool(np.any(np.asarray(self._param_goal_radius)))
+        self._legacy_types = jnp.where(
+            self.object_catalog.is_goal,
+            OBJECT_GOAL,
+            jnp.where(self.object_catalog.inventory_keys != 0, OBJECT_KEY, OBJECT_NONE),
+        )
+        self._legacy_colors = jnp.where(
+            self.object_catalog.is_goal,
+            KEY_COLOR_YELLOW,
+            self.object_catalog.inventory_keys,
+        )
         self.episode_horizon = _episode_horizon(
             episode_horizon,
             default_horizon=self.params.horizon,
         )
 
     @classmethod
-    def from_ascii(cls, ascii_maze: str, **kwargs) -> "RayMazeEnv":
-        return cls(parse_ascii_maze(ascii_maze), **kwargs)
+    def from_ascii(
+        cls,
+        ascii_maze: str,
+        *,
+        objects: Sequence[ObjectPlacement] = (),
+        object_symbols: Mapping[str, str] | None = None,
+        **kwargs,
+    ) -> "RayMazeEnv":
+        return cls(
+            parse_ascii_maze(
+                ascii_maze,
+                objects=objects,
+                object_symbols=object_symbols,
+                require_goal=False,
+            ),
+            **kwargs,
+        )
 
     @property
     def num_actions(self) -> int:
@@ -145,11 +210,15 @@ class RayMazeEnv:
             return jax.random.uniform(key, (), maxval=2.0 * jnp.pi)
         return self.maze.spawn_theta
 
+    def object_type_ids(self, state: State) -> jax.Array:
+        """Environment-local catalog IDs, one per object slot."""
+        return self._initial_type_ids
+
     def _object_types(self, state: State) -> jax.Array:
-        return self.maze.object_type
+        return self._legacy_types[self.object_type_ids(state)]
 
     def _object_colors(self, state: State) -> jax.Array:
-        return self.maze.object_color
+        return self._legacy_colors[self.object_type_ids(state)]
 
     def _reset_state(self, key: jax.Array) -> State:
         spawn_key, goal_key = jax.random.split(key)
@@ -160,28 +229,22 @@ class RayMazeEnv:
             maxval=self.maze.spawn_count,
             dtype=jnp.int32,
         )
-        object_type = self.maze.object_type
-        goal_mask = object_type == OBJECT_GOAL
-        goal_order = jnp.cumsum(goal_mask.astype(jnp.int32)) - 1
-        goal_idx = jax.random.randint(
-            goal_key,
-            shape=(),
-            minval=0,
-            maxval=jnp.sum(goal_mask.astype(jnp.int32)),
-            dtype=jnp.int32,
-        )
-        selected_goal = goal_mask & (goal_order == goal_idx)
-        object_active = (object_type != OBJECT_NONE) & (
-            (object_type != OBJECT_GOAL) | selected_goal
-        )
-        goal_xy = jnp.sum(
-            jnp.where(
-                selected_goal[:, None],
-                self.maze.object_xy,
-                jnp.asarray(0.0, dtype=jnp.float32),
-            ),
-            axis=0,
-        )
+        if self._has_goal_candidates:
+            goal_mask = self._goal_candidates & self._initial_active
+            goal_order = jnp.cumsum(goal_mask.astype(jnp.int32)) - 1
+            goal_idx = jax.random.randint(
+                goal_key, (), 0, jnp.maximum(jnp.sum(goal_mask), 1)
+            )
+            selected_goal = goal_mask & (goal_order == goal_idx)
+            object_active = self._initial_active & (
+                ~self._goal_candidates | selected_goal
+            )
+            goal_xy = jnp.sum(
+                jnp.where(selected_goal[:, None], self.maze.object_xy, 0.0), axis=0
+            )
+        else:
+            object_active = self._initial_active
+            goal_xy = jnp.zeros((2,), dtype=jnp.float32)
         return State(
             pos=self.maze.spawn_xy_options[spawn_idx],
             theta=self._spawn_heading(jax.random.fold_in(key, 2)),
@@ -230,50 +293,69 @@ class RayMazeEnv:
         blocked = _is_wall_at(wall_grid, proposed_pos)
         pos = jnp.where(blocked, state.pos, proposed_pos)
 
-        object_xy = self.maze.object_xy
-        object_type = self._object_types(state)
-        object_color = self._object_colors(state)
-        object_distances = jnp.linalg.norm(object_xy - pos[None, :], axis=-1)
-        pickup_radius = jnp.where(
-            object_type == OBJECT_GOAL,
-            params.goal_radius,
-            object_pickup_radius(object_type),
-        )
-        picked_objects = (
-            active
-            & state.object_active
-            & (object_type != OBJECT_NONE)
-            & (object_distances < pickup_radius)
-        )
-        object_active = state.object_active & ~picked_objects
-        key_colors = jnp.arange(NUM_KEY_COLORS, dtype=jnp.int32)
-        picked_key_colors = jnp.where(
-            picked_objects & (object_type == OBJECT_KEY), object_color, KEY_COLOR_NONE
-        )
-        picked_key_mask = jnp.any(
-            picked_key_colors[:, None] == key_colors[None, :], axis=0
-        ) & (key_colors != KEY_COLOR_NONE)
-        carried_keys = state.carried_keys | picked_key_mask
-        reached_goal = jnp.any(picked_objects & (object_type == OBJECT_GOAL))
-        picked_apples = jnp.sum(picked_objects & (object_type == OBJECT_APPLE))
-        door_open, opened_door, opened_door_color = _interact_with_door(
-            self.maze.door_grid,
-            state.door_open,
-            pos,
-            theta,
-            carried_keys,
-            (action == ACTION_INTERACT) & active,
-            params.interact_distance,
-        )
+        catalog = self.object_catalog
+        type_ids = self.object_type_ids(state)
+        if self._has_objects:
+            radii = catalog.pickup_radii[type_ids]
+            if self._uses_param_goal_radius:
+                radii = jnp.where(
+                    self._param_goal_radius[type_ids], params.goal_radius, radii
+                )
+            distances = jnp.linalg.norm(self.maze.object_xy - pos[None, :], axis=-1)
+            picked_objects = active & state.object_active & (distances < radii)
+            object_active = state.object_active & ~(
+                picked_objects & catalog.consume[type_ids]
+            )
+            object_reward = jnp.sum(
+                jnp.where(picked_objects, catalog.rewards[type_ids], 0.0)
+            )
+            terminal_pickup = jnp.any(picked_objects & catalog.terminal[type_ids])
+            reached_goal = jnp.any(picked_objects & catalog.is_goal[type_ids])
+            picked_type_id = jnp.max(
+                jnp.where(picked_objects, type_ids, -1), initial=-1
+            )
+            picked_object_type = jnp.max(
+                jnp.where(picked_objects, self._legacy_types[type_ids], 0), initial=0
+            )
+            picked_object_color = jnp.max(
+                jnp.where(picked_objects, self._legacy_colors[type_ids], 0), initial=0
+            )
+        else:
+            picked_objects = jnp.zeros((0,), dtype=jnp.bool_)
+            object_active = state.object_active
+            object_reward = jnp.asarray(0.0, dtype=jnp.float32)
+            terminal_pickup = reached_goal = jnp.asarray(False)
+            picked_type_id = jnp.asarray(-1, dtype=jnp.int32)
+            picked_object_type = picked_object_color = jnp.asarray(0, dtype=jnp.int32)
+        carried_keys = state.carried_keys
+        if catalog.has_keys:
+            key_colors = jnp.arange(NUM_KEY_COLORS, dtype=jnp.int32)
+            picked_keys = jnp.where(
+                picked_objects, catalog.inventory_keys[type_ids], KEY_COLOR_NONE
+            )
+            key_mask = jnp.any(picked_keys[:, None] == key_colors[None, :], axis=0)
+            carried_keys = carried_keys | (key_mask & (key_colors != KEY_COLOR_NONE))
+        if self._has_doors:
+            door_open, opened_door, opened_door_color = _interact_with_door(
+                self.maze.door_grid,
+                state.door_open,
+                pos,
+                theta,
+                carried_keys,
+                (action == ACTION_INTERACT) & active,
+                params.interact_distance,
+            )
+        else:
+            door_open = state.door_open
+            opened_door = jnp.asarray(False)
+            opened_door_color = jnp.asarray(KEY_COLOR_NONE, dtype=jnp.int32)
 
         distance_to_goal = jnp.linalg.norm(pos - state.goal_xy)
         t = state.t + jnp.where(active, 1, 0).astype(jnp.int32)
-        done = state.done | reached_goal | (t >= self.episode_horizon)
+        done = state.done | terminal_pickup | (t >= self.episode_horizon)
         reward = jnp.where(
             active,
-            self.living_reward
-            + jnp.where(reached_goal, self.goal_reward, 0.0)
-            + self.apple_reward * picked_apples,
+            self.living_reward + object_reward,
             0.0,
         ).astype(jnp.float32)
 
@@ -294,9 +376,10 @@ class RayMazeEnv:
             "cell_x": jnp.floor(pos[0]).astype(jnp.int32),
             "cell_y": jnp.floor(pos[1]).astype(jnp.int32),
             "reached_goal": reached_goal,
-            "picked_apples": picked_apples,
-            "picked_object_type": jnp.max(jnp.where(picked_objects, object_type, 0)),
-            "picked_object_color": jnp.max(jnp.where(picked_objects, object_color, 0)),
+            "picked_objects": picked_objects,
+            "picked_type_id": picked_type_id,
+            "picked_object_type": picked_object_type,
+            "picked_object_color": picked_object_color,
             "carried_keys": carried_keys,
             "opened_door": opened_door,
             "opened_door_color": opened_door_color,
@@ -328,8 +411,10 @@ class RayMazeEnv:
             floor_checker_dark_rgb=self.floor_checker_dark_rgb,
             floor_checker_light_rgb=self.floor_checker_light_rgb,
             object_xy=self.maze.object_xy,
-            object_type=self._object_types(state),
-            object_color=self._object_colors(state),
+            object_sprite=self.object_type_ids(state),
+            sprite_atlas=self.object_catalog.sprites,
+            sprite_width_scales=self.object_catalog.width_scales,
+            sprite_height_scales=self.object_catalog.height_scales,
             object_active=state.object_active,
             wall_height_scale=self.wall_height_scale,
             floor_pattern=self.floor_pattern,

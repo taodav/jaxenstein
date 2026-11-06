@@ -16,6 +16,7 @@ from jaxenstein.env import (
     State,
 )
 from jaxenstein.factory import JAXENSTEIN_ENV_IDS, make_jaxenstein_env
+from jaxenstein.objects import ObjectSpec, ObjectPlacement
 from jaxenstein.maps.health_gathering import (
     HEALTH_GATHERING_ACTION_MOVE_FORWARD,
     HEALTH_GATHERING_ACTION_TURN_LEFT,
@@ -59,6 +60,8 @@ __all__ = [
     "HealthGatheringState",
     "JAXENSTEIN_ENV_IDS",
     "NUM_ACTIONS",
+    "ObjectSpec",
+    "ObjectPlacement",
     "RayMazeEnv",
     "State",
     "make_jaxenstein_env",

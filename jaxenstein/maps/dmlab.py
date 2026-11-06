@@ -30,6 +30,14 @@ Factory overrides include `apple_reward=0.0`, `randomize_spawn_heading=False`,
 and, for random levels, `scattered_reward_density=0.0`. Other environment IDs
 retain fixed initial headings by default.
 
+Apples are environment-defined ObjectSpec values from dmlab_object_types(),
+with positions supplied separately from geometry. Override object_types to
+change their properties or sprite. Objects absent from an instance's catalog
+are never materialized or drawn. Static levels with objects=[] omit apples;
+random levels with scattered_reward_density=0 build only goal properties and
+textures, with no fruit sampling. dmlab_map_to_spec() preserves both geometry
+and placements; dmlab_map_to_ascii() intentionally exports geometry only.
+
 **Compatibility:** DMLab results from versions before this change used omitted
 apples, fixed headings, and a fixed start in the random-goal levels. Those results
 are a different task configuration. Setting only the overrides above does not
@@ -41,9 +49,12 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import dataclass
 
-from jaxenstein.objects import COLORED_WALL_SYMBOLS
+import numpy as np
 
+from jaxenstein.objects import COLORED_WALL_SYMBOLS, ObjectPlacement, ObjectSpec
+from jaxenstein.sprites import coordinates, rgba
 
 DMLAB_CELL_SIZE = 100.0
 _POINT_RE = re.compile(
@@ -125,12 +136,12 @@ def dmlab_map_to_ascii(map_text: str, *, cell_size: float = DMLAB_CELL_SIZE) -> 
     for (row, col), symbol in wall_symbols.items():
         if 0 <= row < height and 0 <= col < width:
             grid[row][col] = symbol
+    for col, row in apples:
+        grid[2 * row + 1][2 * col + 1] = "."
     for col, row in goals:
         grid[2 * row + 1][2 * col + 1] = "G"
-    for col, row in apples:
-        grid[2 * row + 1][2 * col + 1] = "D"
     for col, row in starts:
-        grid[2 * row + 1][2 * col + 1] = "K" if (col, row) in apples else "S"
+        grid[2 * row + 1][2 * col + 1] = "S"
 
     return "\n".join("".join(row).rstrip() for row in grid)
 
@@ -260,3 +271,40 @@ def _open_floor_connectors(
             grid[2 * row + 1][2 * col + 2] = "."
         if (col, row + 1) in floor_cells and south not in wall_symbols:
             grid[2 * row + 2][2 * col + 1] = "."
+
+
+@dataclass(frozen=True)
+class DMLabMap:
+    ascii_map: str
+    objects: tuple[ObjectPlacement, ...]
+
+
+def dmlab_map_to_spec(map_text: str, *, cell_size: float = DMLAB_CELL_SIZE) -> DMLabMap:
+    """Convert geometry plus separate apple placements, retaining spawn overlap."""
+    objects = []
+    for entity in _top_level_blocks(map_text)[1:]:
+        props = dict(_PROPERTY_RE.findall(entity))
+        if props.get("classname") == "apple_reward":
+            col, row = _origin_cell(props["origin"], cell_size)
+            objects.append(ObjectPlacement("apple", (2 * col + 1.5, 2 * row + 1.5)))
+    return DMLabMap(dmlab_map_to_ascii(map_text, cell_size=cell_size), tuple(objects))
+
+
+def apple_sprite():
+    """Generate DMLab's sprite once on the CPU, only when the catalog uses it."""
+    x, y = coordinates()
+    body = (((x + 0.27) / 0.62) ** 2 + ((y - 0.12) / 0.70) ** 2 <= 1) | (
+        ((x - 0.27) / 0.62) ** 2 + ((y - 0.12) / 0.70) ** 2 <= 1
+    )
+    body &= ~((np.abs(x) < 0.16) & (y < -0.42))
+    stem = (np.abs(x + 0.03) < 0.09) & (y > -0.96) & (y < -0.38)
+    leaf = ((x - 0.27) / 0.30) ** 2 + ((y + 0.72) / 0.14) ** 2 <= 1
+    core = ((x + 0.32) / 0.18) ** 2 + ((y + 0.12) / 0.27) ** 2 <= 1
+    image = rgba(body | stem | leaf, core, (214, 38, 36), (255, 126, 99))
+    image[stem, :3] = (104, 62, 27)
+    image[leaf, :3] = (64, 160, 48)
+    return image
+
+
+def dmlab_object_types(*, apple_reward=1.0):
+    return {"apple": ObjectSpec(sprite=apple_sprite, reward=apple_reward)}

@@ -7,7 +7,7 @@
 First-person maze environments in JAX.
 
 Features: ASCII maps, RGB raycast observations, billboard sprites, colored keys
-and doors, apple pickups, goal rewards, health survival, and JIT/vmap-friendly environment steps. The full details of this benchmark are given in the [preprint](https://arxiv.org/abs/2605.19926).
+and doors, configurable pickups, goal rewards, health survival, and JIT/vmap-friendly environment steps. The full details of this benchmark are given in the [preprint](https://arxiv.org/abs/2605.19926).
 
 <p align="center">
  <img width="99%" src="media/gifs/combined.gif" />
@@ -132,7 +132,8 @@ Options: `--map`, `--widths`, `--max-depth`, `--samples`, `--repeats`,
 python scripts/convert_dmlab_map.py path/to/nav_maze_static_01.map
 ```
 
-Prints the JAXenstein ASCII map for a DMLab `.map` file.
+Exports JSON with geometry and object placements for a DMLab `.map` file.
+Use `--format ascii` for geometry only; see [the map guide](jaxenstein/maps/MAZES.md) for object configuration.
 
 ## Baselines
 Experiments on this benchmark (in the [paper](https://arxiv.org/abs/2605.19926)) are conducted on the [JAXenstein Baselines repo](https://github.com/taodav/jaxenstein_baselines).
