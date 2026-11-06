@@ -37,9 +37,10 @@ The entity and initial-reset rules follow DeepMind Lab's
 and [spawn code](https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/engine/code/game/g_client.c).
 JAXenstein retains its own raycast geometry, movement, and rendering.
 
-**Episode semantics differ:** the official engine reloads the map after a goal
-while the timed episode continues. JAXenstein currently treats a goal as an
-episode boundary. Consequently, callers that clear recurrent memory on done
+**Intentional episode semantics:** the official engine reloads the map after a
+goal while the timed episode continues. JAXenstein treats every map restart as
+a new episode: a goal sets done, and reset starts a fresh time budget.
+Consequently, callers that clear recurrent memory on done
 also clear it after every goal, and random-goal layouts are resampled then.
 The original keeps the goal and apple placement fixed until the timed episode
 ends, restoring collected apples on each map reload. See
