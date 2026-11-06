@@ -13,6 +13,7 @@ from jaxenstein.objects import (
     DOOR_SYMBOLS,
     OBJECT_GOAL,
     OBJECT_SYMBOLS,
+    SPAWN_SYMBOLS,
     WALL_SYMBOLS,
 )
 
@@ -85,9 +86,9 @@ def parse_ascii_maze(
             color_grid[row_idx, col_idx] = 0
             xy = np.array([col_idx + 0.5, row_idx + 0.5], dtype=np.float32)
 
-            if char == "S":
+            if char in SPAWN_SYMBOLS:
                 spawn_xy_options.append(xy)
-            elif char in OBJECT_SYMBOLS:
+            if char in OBJECT_SYMBOLS:
                 kind, color = OBJECT_SYMBOLS[char]
                 object_xy.append(xy)
                 object_type.append(kind)
@@ -121,4 +122,3 @@ def parse_ascii_maze(
         object_color=jnp.asarray(object_color, dtype=jnp.int32),
         door_grid=jnp.asarray(door_grid),
     )
-

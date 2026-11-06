@@ -13,6 +13,7 @@ from jaxenstein.objects import (
     DOOR_LOCKED_WALL_COLOR_OFFSET,
     KEY_COLOR_NONE,
     NUM_KEY_COLORS,
+    OBJECT_APPLE,
     OBJECT_GOAL,
     OBJECT_KEY,
     OBJECT_NONE,
@@ -88,8 +89,10 @@ class RayMazeEnv:
         wall_height_scale: float = 1.35,
         floor_pattern: bool = True,
         goal_reward: float | jax.Array = 1.0,
+        apple_reward: float | jax.Array = 1.0,
         living_reward: float | jax.Array = 0.0,
         gamma: float = 0.99,
+        randomize_spawn_heading: bool = False,
     ):
         self.maze = maze
         self.params = EnvParams() if params is None else params
@@ -109,8 +112,10 @@ class RayMazeEnv:
         self.wall_height_scale = wall_height_scale
         self.floor_pattern = floor_pattern
         self.goal_reward = jnp.asarray(goal_reward, dtype=jnp.float32)
+        self.apple_reward = jnp.asarray(apple_reward, dtype=jnp.float32)
         self.living_reward = jnp.asarray(living_reward, dtype=jnp.float32)
         self.gamma = float(gamma)
+        self.randomize_spawn_heading = bool(randomize_spawn_heading)
         self.episode_horizon = _episode_horizon(
             episode_horizon,
             default_horizon=self.params.horizon,
@@ -132,6 +137,21 @@ class RayMazeEnv:
         self, key: jax.Array, params: EnvParams | None = None
     ) -> tuple[jax.Array, State]:
         del params
+        state = self._reset_state(key)
+        return self.render(state), state
+
+    def _spawn_heading(self, key: jax.Array) -> jax.Array:
+        if self.randomize_spawn_heading:
+            return jax.random.uniform(key, (), maxval=2.0 * jnp.pi)
+        return self.maze.spawn_theta
+
+    def _object_types(self, state: State) -> jax.Array:
+        return self.maze.object_type
+
+    def _object_colors(self, state: State) -> jax.Array:
+        return self.maze.object_color
+
+    def _reset_state(self, key: jax.Array) -> State:
         spawn_key, goal_key = jax.random.split(key)
         spawn_idx = jax.random.randint(
             spawn_key,
@@ -162,9 +182,9 @@ class RayMazeEnv:
             ),
             axis=0,
         )
-        state = State(
+        return State(
             pos=self.maze.spawn_xy_options[spawn_idx],
-            theta=self.maze.spawn_theta,
+            theta=self._spawn_heading(jax.random.fold_in(key, 2)),
             t=jnp.asarray(0, dtype=jnp.int32),
             done=jnp.asarray(False),
             goal_xy=goal_xy,
@@ -172,7 +192,6 @@ class RayMazeEnv:
             carried_keys=jnp.zeros((NUM_KEY_COLORS,), dtype=jnp.bool_),
             door_open=jnp.zeros_like(self.maze.door_grid, dtype=jnp.bool_),
         )
-        return self.render(state), state
 
     def step(
         self,
@@ -212,8 +231,8 @@ class RayMazeEnv:
         pos = jnp.where(blocked, state.pos, proposed_pos)
 
         object_xy = self.maze.object_xy
-        object_type = self.maze.object_type
-        object_color = self.maze.object_color
+        object_type = self._object_types(state)
+        object_color = self._object_colors(state)
         object_distances = jnp.linalg.norm(object_xy - pos[None, :], axis=-1)
         pickup_radius = jnp.where(
             object_type == OBJECT_GOAL,
@@ -236,6 +255,7 @@ class RayMazeEnv:
         ) & (key_colors != KEY_COLOR_NONE)
         carried_keys = state.carried_keys | picked_key_mask
         reached_goal = jnp.any(picked_objects & (object_type == OBJECT_GOAL))
+        picked_apples = jnp.sum(picked_objects & (object_type == OBJECT_APPLE))
         door_open, opened_door, opened_door_color = _interact_with_door(
             self.maze.door_grid,
             state.door_open,
@@ -251,7 +271,9 @@ class RayMazeEnv:
         done = state.done | reached_goal | (t >= self.episode_horizon)
         reward = jnp.where(
             active,
-            self.living_reward + jnp.where(reached_goal, self.goal_reward, 0.0),
+            self.living_reward
+            + jnp.where(reached_goal, self.goal_reward, 0.0)
+            + self.apple_reward * picked_apples,
             0.0,
         ).astype(jnp.float32)
 
@@ -272,6 +294,7 @@ class RayMazeEnv:
             "cell_x": jnp.floor(pos[0]).astype(jnp.int32),
             "cell_y": jnp.floor(pos[1]).astype(jnp.int32),
             "reached_goal": reached_goal,
+            "picked_apples": picked_apples,
             "picked_object_type": jnp.max(jnp.where(picked_objects, object_type, 0)),
             "picked_object_color": jnp.max(jnp.where(picked_objects, object_color, 0)),
             "carried_keys": carried_keys,
@@ -305,8 +328,8 @@ class RayMazeEnv:
             floor_checker_dark_rgb=self.floor_checker_dark_rgb,
             floor_checker_light_rgb=self.floor_checker_light_rgb,
             object_xy=self.maze.object_xy,
-            object_type=self.maze.object_type,
-            object_color=self.maze.object_color,
+            object_type=self._object_types(state),
+            object_color=self._object_colors(state),
             object_active=state.object_active,
             wall_height_scale=self.wall_height_scale,
             floor_pattern=self.floor_pattern,
@@ -379,7 +402,11 @@ def _interact_with_door(
 
     new_cell_open = door_open[clipped_y, clipped_x] | opened_door
     new_door_open = door_open.at[clipped_y, clipped_x].set(new_cell_open)
-    return new_door_open, opened_door, jnp.where(opened_door, door_color, KEY_COLOR_NONE)
+    return (
+        new_door_open,
+        opened_door,
+        jnp.where(opened_door, door_color, KEY_COLOR_NONE),
+    )
 
 
 def _episode_horizon(

@@ -12,6 +12,7 @@ from jaxenstein.objects import (
     DOOR_PANEL_WALL_COLOR_IDS,
     KEY_COLOR_RED,
     KEY_COLOR_YELLOW,
+    OBJECT_APPLE,
     OBJECT_GOAL,
     OBJECT_KEY,
     OBJECT_MEDKIT,
@@ -47,9 +48,7 @@ def _make_wall_palette(size: int = 96) -> jax.Array:
         saturation = 0.72 + 0.18 * ((index % 3) / 2.0)
         value = 0.78 + 0.14 * ((index + 1) % 2)
         rgb = colorsys.hsv_to_rgb(hue, saturation, value)
-        extra.append(
-            [round(channel * 255) for channel in rgb]
-        )
+        extra.append([round(channel * 255) for channel in rgb])
     return jnp.asarray(base + extra, dtype=jnp.float32)
 
 
@@ -386,9 +385,7 @@ def _apply_door_panel_pattern(
     *,
     img_w: int,
 ) -> jax.Array:
-    door_cols = jnp.any(
-        wall_ids[:, None] == DOOR_PANEL_WALL_COLOR_IDS[None, :], axis=1
-    )
+    door_cols = jnp.any(wall_ids[:, None] == DOOR_PANEL_WALL_COLOR_IDS[None, :], axis=1)
 
     cols = jnp.arange(img_w, dtype=jnp.float32)[None, :]
     vertical_panel = jnp.mod(cols + 2.0, 9.0) < 2.0
@@ -438,10 +435,21 @@ def render_billboard_sprites(
     goal_core = (radius_sq <= 0.32) | (jnp.abs(dx) < 0.16)
 
     medkit_mask = (jnp.abs(dx) <= 0.78) & (jnp.abs(dy) <= 0.52)
-    medkit_core = (
-        ((jnp.abs(dx) <= 0.15) & (jnp.abs(dy) <= 0.42))
-        | ((jnp.abs(dy) <= 0.15) & (jnp.abs(dx) <= 0.48))
+    medkit_core = ((jnp.abs(dx) <= 0.15) & (jnp.abs(dy) <= 0.42)) | (
+        (jnp.abs(dy) <= 0.15) & (jnp.abs(dx) <= 0.48)
     )
+
+    # A lobed red fruit with a notch, brown stem, and green leaf. These
+    # procedural masks use the same billboard/depth path as keys and goals.
+    apple_body = (((dx + 0.27) / 0.62) ** 2 + ((dy - 0.12) / 0.70) ** 2 <= 1.0) | (
+        ((dx - 0.27) / 0.62) ** 2 + ((dy - 0.12) / 0.70) ** 2 <= 1.0
+    )
+    apple_notch = (jnp.abs(dx) < 0.16) & (dy < -0.42)
+    apple_body = apple_body & ~apple_notch
+    apple_stem = (jnp.abs(dx + 0.03) < 0.09) & (dy > -0.96) & (dy < -0.38)
+    apple_leaf = ((dx - 0.27) / 0.30) ** 2 + ((dy + 0.72) / 0.14) ** 2 <= 1.0
+    apple_mask = apple_body | apple_stem | apple_leaf
+    apple_core = ((dx + 0.32) / 0.18) ** 2 + ((dy + 0.12) / 0.27) ** 2 <= 1.0
 
     head_dist = (dx + 0.48) ** 2 + (dy + 0.02) ** 2
     key_head = (head_dist <= 0.32**2) & (head_dist >= 0.17**2)
@@ -456,15 +464,16 @@ def render_billboard_sprites(
 
     is_key = object_type[:, None, None] == OBJECT_KEY
     is_medkit = object_type[:, None, None] == OBJECT_MEDKIT
+    is_apple = object_type[:, None, None] == OBJECT_APPLE
     object_mask = jnp.where(
         is_key,
         key_mask,
-        jnp.where(is_medkit, medkit_mask, goal_mask),
+        jnp.where(is_medkit, medkit_mask, jnp.where(is_apple, apple_mask, goal_mask)),
     )
     core_mask = jnp.where(
         is_key,
         key_core,
-        jnp.where(is_medkit, medkit_core, goal_core),
+        jnp.where(is_medkit, medkit_core, jnp.where(is_apple, apple_core, goal_core)),
     )
     visible = (
         object_active
@@ -477,14 +486,20 @@ def render_billboard_sprites(
 
     sprite_depth = jnp.where(sprite_mask, forward_depth[:, None, None], jnp.inf)
     nearest_idx = jnp.argmin(sprite_depth, axis=0)
-    nearest_depth = jnp.take_along_axis(sprite_depth, nearest_idx[None, :, :], axis=0)[0]
+    nearest_depth = jnp.take_along_axis(sprite_depth, nearest_idx[None, :, :], axis=0)[
+        0
+    ]
     has_sprite = jnp.isfinite(nearest_depth)
 
     nearest_type = jnp.take(object_type, nearest_idx, mode="clip")
     nearest_core = jnp.take_along_axis(core_mask, nearest_idx[None, :, :], axis=0)[0]
     nearest_color = jnp.take(object_color, nearest_idx, mode="clip")
-    edge_rgb = jnp.take(OBJECT_EDGE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip")
-    core_rgb = jnp.take(OBJECT_CORE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip")
+    edge_rgb = jnp.take(
+        OBJECT_EDGE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip"
+    )
+    core_rgb = jnp.take(
+        OBJECT_CORE_PALETTE_BY_COLOR, nearest_color, axis=0, mode="clip"
+    )
     key_edge_rgb = jnp.asarray([44, 28, 24], dtype=jnp.float32)
     medkit_edge_rgb = jnp.asarray([238, 238, 222], dtype=jnp.float32)
     medkit_core_rgb = jnp.asarray([214, 28, 28], dtype=jnp.float32)
@@ -500,4 +515,24 @@ def render_billboard_sprites(
         core_rgb,
     )
     sprite_rgb = jnp.where(nearest_core[..., None], core_rgb, edge_rgb)
+    nearest_leaf = jnp.take_along_axis(apple_leaf, nearest_idx[None, :, :], axis=0)[0]
+    nearest_stem = jnp.take_along_axis(apple_stem, nearest_idx[None, :, :], axis=0)[0]
+    apple_rgb = jnp.where(
+        nearest_core[..., None],
+        jnp.asarray([255, 126, 99], dtype=jnp.float32),
+        jnp.asarray([214, 38, 36], dtype=jnp.float32),
+    )
+    apple_rgb = jnp.where(
+        nearest_stem[..., None],
+        jnp.asarray([104, 62, 27], dtype=jnp.float32),
+        apple_rgb,
+    )
+    apple_rgb = jnp.where(
+        nearest_leaf[..., None],
+        jnp.asarray([64, 160, 48], dtype=jnp.float32),
+        apple_rgb,
+    )
+    sprite_rgb = jnp.where(
+        nearest_type[..., None] == OBJECT_APPLE, apple_rgb, sprite_rgb
+    )
     return jnp.where(has_sprite[..., None], sprite_rgb, rgb)

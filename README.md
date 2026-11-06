@@ -7,7 +7,7 @@
 First-person maze environments in JAX.
 
 Features: ASCII maps, RGB raycast observations, billboard sprites, colored keys
-and doors, sparse goal rewards, health survival, and JIT/vmap-friendly environment steps. The full details of this benchmark are given in the [preprint](https://arxiv.org/abs/2605.19926).
+and doors, apple pickups, goal rewards, health survival, and JIT/vmap-friendly environment steps. The full details of this benchmark are given in the [preprint](https://arxiv.org/abs/2605.19926).
 
 <p align="center">
  <img width="99%" src="media/gifs/combined.gif" />
@@ -43,8 +43,44 @@ Use an ID with `make_jaxenstein_env`, `make_jaxenstein_gymnax_env`, or
 | Health | Health Gathering | `health-gathering` | Survive an acidic room by collecting medkits. |
 | Maze | My Way Home | `my-way-home` | Large maze with many starts, colored walls, and one goal. |
 | Maze | My Way Home Colorless | `my-way-home-colorless` | Same topology with default wall coloring. |
-| DMLab | Static goal | `dmlab-static-{01,02,03}` | Fixed-goal mazes; `01` small, `02` medium, `03` large. |
-| DMLab | Random goal | `dmlab-random-{01,02,03}` | Same sizes; one goal candidate is active each episode. |
+| DMLab | Static goal | `dmlab-static-{01,02,03}` | Fixed goal and apple locations; `01` small, `02` medium, `03` large. |
+| DMLab | Random goal | `dmlab-random-{01,02,03}` | Resample the goal, scattered apples, and a distant start each episode. |
+
+### DMLab rewards and resets
+
+All six DMLab environments give +1 for each apple collected and +10 for reaching
+the goal. Apples disappear after collection and reappear on reset; collecting
+apples does not terminate the episode. The goal or time limit ends the episode.
+Initial headings are uniform over the full circle.
+
+| Size | Static apples | Static spawn locations | Random goal candidates | Random apples per episode |
+| --- | ---: | ---: | ---: | ---: |
+| 01 | 5 | 43 | 50 | 5 |
+| 02 | 13 | 128 | 135 | 13 |
+| 03 | 26 | 251 | 260 | 26 |
+
+Static levels sample uniformly from their designated starts, including starts
+that share an apple. Random levels choose a goal uniformly from the source map's
+apple locations, choose a uniform start more than eight maze-grid edges from the
+goal, and scatter apples uniformly without replacement over the remaining
+locations. The apple count is `floor(0.1 * (candidate_count - 1) + 0.5)`.
+The source map's single start is a placeholder relocated by the level script.
+
+These rules follow DeepMind Lab's
+[static factory](https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/game_scripts/factories/seek_avoid_factory.lua),
+[random-goal factory](https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/game_scripts/factories/random_goal_factory.lua),
+and [spawn code](https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/engine/code/game/g_client.c).
+JAXenstein retains its own raycast geometry, movement, and rendering.
+
+Factory overrides include `apple_reward=0.0`, `randomize_spawn_heading=False`,
+and, for random levels, `scattered_reward_density=0.0`. Other environment IDs
+retain fixed initial headings by default.
+
+**Compatibility:** DMLab results from versions before this change used omitted
+apples, fixed headings, and a fixed start in the random-goal levels. Those results
+are a different task configuration. Setting only the overrides above does not
+reproduce the old random-goal start/goal distribution. Existing checkpoints have
+different object counts; start new episodes when upgrading.
 
 ## Python Usage
 

@@ -69,14 +69,12 @@ def dmlab_map_to_ascii(map_text: str, *, cell_size: float = DMLAB_CELL_SIZE) -> 
         elif classname == "apple_reward":
             apples.append(cell)
 
-    if not goals:
-        goals = apples
     if not starts:
         raise ValueError("DMLab map did not contain any info_player_start entities")
-    if not goals:
-        raise ValueError("DMLab map did not contain any goal entities")
+    if not goals and not apples:
+        raise ValueError("DMLab map did not contain any goal or apple entities")
 
-    cells = floor_cells | set(starts) | set(goals)
+    cells = floor_cells | set(starts) | set(goals) | set(apples)
     max_col = max(col for col, _ in cells)
     max_row = max(row for _, row in cells)
     height = max(max_row * 2 + 3, max((pos[0] + 1 for pos in wall_symbols), default=0))
@@ -92,8 +90,10 @@ def dmlab_map_to_ascii(map_text: str, *, cell_size: float = DMLAB_CELL_SIZE) -> 
             grid[row][col] = symbol
     for col, row in goals:
         grid[2 * row + 1][2 * col + 1] = "G"
+    for col, row in apples:
+        grid[2 * row + 1][2 * col + 1] = "D"
     for col, row in starts:
-        grid[2 * row + 1][2 * col + 1] = "S"
+        grid[2 * row + 1][2 * col + 1] = "K" if (col, row) in apples else "S"
 
     return "\n".join("".join(row).rstrip() for row in grid)
 
@@ -147,9 +147,7 @@ def _bounds_from_points(
     min_z: float = -math.inf,
 ) -> tuple[float, float, float, float] | None:
     points = [
-        (float(x), float(y))
-        for x, y, z in _POINT_RE.findall(block)
-        if float(z) > min_z
+        (float(x), float(y)) for x, y, z in _POINT_RE.findall(block) if float(z) > min_z
     ]
     if not points:
         return None
@@ -161,10 +159,7 @@ def _brush_bounds_from_planes(block: str) -> tuple[float, float, float, float] |
     x_planes: list[float] = []
     y_planes: list[float] = []
     for line in block.splitlines():
-        points = [
-            (float(x), float(y))
-            for x, y, _ in _POINT_RE.findall(line)[:3]
-        ]
+        points = [(float(x), float(y)) for x, y, _ in _POINT_RE.findall(line)[:3]]
         if len(points) < 3:
             continue
         xs, ys = zip(*points)

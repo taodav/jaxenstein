@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from jaxenstein.env import RayMazeEnv
+from jaxenstein.maps.dmlab_random_goal import DMLabRandomGoalEnv
 from jaxenstein.maps import (
     DEFAULT_DISCOUNT_GAMMA,
     HEALTH_GATHERING_EPISODE_HORIZONS_BY_NAME,
@@ -23,9 +24,7 @@ from jaxenstein.maps.health_gathering import (
 
 
 JAXENSTEIN_ENV_IDS = tuple(sorted((*MAPS_BY_NAME, *HEALTH_GATHERING_MAPS_BY_NAME)))
-_HEALTH_GATHERING_PARAM_NAMES = frozenset(
-    HealthGatheringParams.__dataclass_fields__
-)
+_HEALTH_GATHERING_PARAM_NAMES = frozenset(HealthGatheringParams.__dataclass_fields__)
 
 
 def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGatheringEnv:
@@ -48,13 +47,17 @@ def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGather
 
     if env_id in MAPS_BY_NAME:
         env_kwargs = {
+            "randomize_spawn_heading": env_id.startswith("dmlab-"),
             "episode_horizon": MAP_EPISODE_HORIZONS_BY_NAME.get(env_id),
             **MAP_REWARD_KWARGS_BY_NAME.get(env_id, {}),
             **MAP_RENDER_KWARGS_BY_NAME.get(env_id, {}),
             "gamma": MAP_DISCOUNT_GAMMAS_BY_NAME.get(env_id, DEFAULT_DISCOUNT_GAMMA),
             **kwargs,
         }
-        return RayMazeEnv.from_ascii(MAPS_BY_NAME[env_id], **env_kwargs)
+        env_cls = (
+            DMLabRandomGoalEnv if env_id.startswith("dmlab-random-") else RayMazeEnv
+        )
+        return env_cls.from_ascii(MAPS_BY_NAME[env_id], **env_kwargs)
 
     raise ValueError(
         f"unknown env_id {env_id!r}; expected one of {list(JAXENSTEIN_ENV_IDS)}"

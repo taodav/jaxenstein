@@ -10,6 +10,7 @@ OBJECT_NONE = 0
 OBJECT_GOAL = 1
 OBJECT_KEY = 2
 OBJECT_MEDKIT = 3
+OBJECT_APPLE = 4
 
 KEY_COLOR_NONE = 0
 KEY_COLOR_RED = 1
@@ -25,7 +26,13 @@ OBJECT_SYMBOLS = {
     "r": (OBJECT_KEY, KEY_COLOR_RED),
     "b": (OBJECT_KEY, KEY_COLOR_BLUE),
     "y": (OBJECT_KEY, KEY_COLOR_YELLOW),
+    "D": (OBJECT_APPLE, KEY_COLOR_RED),
+    "K": (OBJECT_APPLE, KEY_COLOR_RED),
 }
+
+# D and K are the two printable letter symbols not used by colored walls,
+# keys, doors, or goals. K preserves a spawn and an apple at the same position.
+SPAWN_SYMBOLS = frozenset({"S", "K"})
 
 DOOR_SYMBOLS = {
     '"': DOOR_UNLOCKED,
@@ -36,8 +43,7 @@ DOOR_SYMBOLS = {
 }
 
 COLORED_WALL_SYMBOLS = (
-    "1234567890!$%&()*+,-/:;<=>?@[]^_`{|}~'"
-    "acdefghijklmnopqstuvwxzACEFHIJLMNOPQTUVWXZ"
+    "1234567890!$%&()*+,-/:;<=>?@[]^_`{|}~'acdefghijklmnopqstuvwxzACEFHIJLMNOPQTUVWXZ"
 )
 WALL_SYMBOLS = {"#": 1} | {
     symbol: 7 + index for index, symbol in enumerate(COLORED_WALL_SYMBOLS)
@@ -61,7 +67,7 @@ OBJECT_EDGE_PALETTE_BY_COLOR = jnp.asarray(
     ],
     dtype=jnp.float32,
 )
-OBJECT_PICKUP_RADIUS = jnp.asarray([0.0, 0.35, 0.35, 0.60], dtype=jnp.float32)
+OBJECT_PICKUP_RADIUS = jnp.asarray([0.0, 0.35, 0.35, 0.60, 0.35], dtype=jnp.float32)
 DOOR_WALL_COLOR_IDS = jnp.asarray([0, 4, 5, 6], dtype=jnp.int32)
 DOOR_PANEL_WALL_COLOR_IDS = jnp.asarray([4, 5, 6], dtype=jnp.int32)
 DOOR_LOCKED_WALL_COLOR_OFFSET = 100

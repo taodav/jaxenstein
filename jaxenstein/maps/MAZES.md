@@ -45,6 +45,8 @@ rows are padded with walls.
 | space | floor |
 | `S` | spawn candidate |
 | `G` | yellow goal candidate |
+| `D` | red apple (+1 by default, does not end the episode) |
+| `K` | spawn candidate and apple in the same cell |
 | `r` | red key |
 | `b` | blue key |
 | `y` | yellow key |
@@ -69,6 +71,20 @@ walking near the active goal gives reward `1.0` and ends the episode. If a map
 contains multiple `G` symbols, reset samples exactly one active goal candidate.
 
 Objects are stored in row-major ASCII order.
+
+Apple collection uses the same proximity check as other pickups. Each apple
+rewards once per episode, disappears when collected, and returns on reset.
+`RayMazeEnv.from_ascii(..., apple_reward=1.0)` controls its reward independently
+of the goal reward. `D` and `K` use previously unused symbols so all existing
+colored-wall symbols retain their meanings.
+
+The DMLab converter preserves apples even when a map contains a goal, and uses
+`K` for overlapping spawn/apple entities. Random-goal source maps contain only
+apple candidates, so inspect these with
+`parse_ascii_maze(ascii_map, require_goal=False)`. Create playable random-goal
+levels with `make_jaxenstein_env("dmlab-random-01")`; the factory selects a goal,
+scattered apples, and a distant start at reset. See the repository README for
+the source rules and counts.
 
 ## Health Gathering
 
@@ -175,10 +191,11 @@ uv run python play.py --maze my-way-home-colorless
 ## DeepMind Lab Nav Mazes
 
 `jaxenstein.maps.dmlab.dmlab_map_to_ascii` converts grid-aligned DMLab `nav_maze` `.map`
-files into ASCII maps. `info_player_start` entities become `S`, explicit
-`goal` entities become `G`, and decal image walls become stable colored wall
-symbols instead of textured patches. Random maps use `apple_reward`
-entities as `G` candidates, with one active goal sampled at reset.
+files into ASCII maps. Player starts become `S`, goals become `G`, apples
+become `D`, and overlapping starts/apples become `K`. Decal image walls become
+stable colored wall symbols instead of textured patches. In random-goal levels,
+the factory treats the source apples as candidates and samples their roles
+at reset; it also relocates the source start according to the Lua distance rule.
 
 The DMLab Lua levels set `episodeLengthSeconds` to 60, 150, and 300 for
 indices 01, 02, and 03. Using a Doom-like 30 Hz step budget, JAXenstein maps

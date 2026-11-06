@@ -1,9 +1,16 @@
+import hashlib
+import json
+from pathlib import Path
+
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
+
+from jaxenstein import make_jaxenstein_env
 
 from jaxenstein.maps.ascii import parse_ascii_maze
 from jaxenstein.maps.dmlab import dmlab_decal_symbol, dmlab_map_to_ascii
-from jaxenstein.env import RayMazeEnv
 from jaxenstein.maps import (
     DMLAB_NAV_MAZE_RANDOM_GOAL_01,
     DMLAB_NAV_MAZE_RANDOM_GOAL_02,
@@ -14,7 +21,12 @@ from jaxenstein.maps import (
     MAP_RENDER_KWARGS_BY_NAME,
     MAPS_BY_NAME,
 )
-from jaxenstein.objects import COLORED_WALL_SYMBOLS, OBJECT_GOAL, WALL_SYMBOLS
+from jaxenstein.objects import (
+    COLORED_WALL_SYMBOLS,
+    OBJECT_APPLE,
+    OBJECT_GOAL,
+    WALL_SYMBOLS,
+)
 
 
 SAMPLE_DMLAB_MAP = """
@@ -110,13 +122,15 @@ def test_generated_dmlab_nav_maze_maps_parse_and_are_registered():
     }
 
     for name, ascii_map in dmlab_maps.items():
-        maze = parse_ascii_maze(ascii_map)
+        maze = parse_ascii_maze(ascii_map, require_goal=name.startswith("dmlab-static"))
 
         assert MAPS_BY_NAME[name] == ascii_map
         assert int(maze.spawn_count) >= 1
-        assert bool(jnp.any(maze.object_type == OBJECT_GOAL))
+        expected_type = OBJECT_GOAL if "static" in name else OBJECT_APPLE
+        assert bool(jnp.any(maze.object_type == expected_type))
         assert int(jnp.unique(maze.color_grid[maze.wall_grid]).shape[0]) > 1
         assert _isolated_positions(ascii_map, "S") == []
+        assert _isolated_positions(ascii_map, "K") == []
 
 
 def test_dmlab_render_kwargs_match_maze_color_schemes():
@@ -144,17 +158,124 @@ def test_dmlab_static_01_has_source_goal_and_multiple_starts():
     assert jnp.allclose(maze.goal_xy, jnp.asarray([9.5, 1.5]))
 
 
-def test_dmlab_random_goal_01_uses_apple_rewards_as_goals():
-    maze = parse_ascii_maze(DMLAB_NAV_MAZE_RANDOM_GOAL_01)
+def test_dmlab_random_goal_01_keeps_all_source_candidates():
+    maze = parse_ascii_maze(DMLAB_NAV_MAZE_RANDOM_GOAL_01, require_goal=False)
 
     assert int(maze.spawn_count) == 1
-    assert int(jnp.sum(maze.object_type == OBJECT_GOAL)) == 49
+    assert int(jnp.sum(maze.object_type == OBJECT_APPLE)) == 50
 
 
 def test_dmlab_random_goal_env_activates_one_goal_per_episode():
-    env = RayMazeEnv.from_ascii(DMLAB_NAV_MAZE_RANDOM_GOAL_01)
+    env = make_jaxenstein_env("dmlab-random-01", img_h=8, img_w=8)
 
     _, state = env.reset(jax.random.key(0))
-    active_goals = state.object_active & (env.maze.object_type == OBJECT_GOAL)
+    active_goals = state.object_active & (env._object_types(state) == OBJECT_GOAL)
 
     assert int(jnp.sum(active_goals)) == 1
+
+
+def test_converter_preserves_apple_overlapping_spawn_and_standalone_apple():
+    source = (
+        SAMPLE_DMLAB_MAP
+        + """
+{
+  "classname" "apple_reward"
+  "origin" "50 50 20"
+}
+{
+  "classname" "apple_reward"
+  "origin" "250 50 20"
+}
+"""
+    )
+    converted = dmlab_map_to_ascii(source)
+    maze = parse_ascii_maze(converted)
+    assert converted.splitlines()[1][1] == "K"
+    assert converted.splitlines()[1][5] == "D"
+    assert int(maze.spawn_count) == 1
+    assert int(jnp.sum(maze.object_type == OBJECT_APPLE)) == 2
+    assert int(jnp.sum(maze.object_type == OBJECT_GOAL)) == 1
+
+
+SOURCE_ENTITIES = json.loads(
+    (Path(__file__).parent / "fixtures" / "dmlab_entities.json").read_text()
+)["maps"]
+
+
+@pytest.mark.parametrize("env_id", SOURCE_ENTITIES)
+def test_registered_maps_preserve_official_entities(env_id):
+    maze = parse_ascii_maze(MAPS_BY_NAME[env_id], require_goal=False)
+    source = SOURCE_ENTITIES[env_id]["locations"]
+
+    def source_xy(kind):
+        return sorted(tuple(2 * (v // 100) + 1.5 for v in xy) for xy in source[kind])
+
+    def actual_xy(kind):
+        return sorted(map(tuple, np.asarray(maze.object_xy[maze.object_type == kind])))
+
+    assert sorted(map(tuple, np.asarray(maze.spawn_xy_options))) == source_xy(
+        "info_player_start"
+    )
+    assert actual_xy(OBJECT_APPLE) == source_xy("apple_reward")
+    assert actual_xy(OBJECT_GOAL) == source_xy("goal")
+
+
+@pytest.mark.parametrize(
+    "index,candidates,fruits", [("01", 50, 5), ("02", 135, 13), ("03", 260, 26)]
+)
+def test_random_goal_reset_matches_official_sampling_constraints(
+    index, candidates, fruits
+):
+    env = make_jaxenstein_env(f"dmlab-random-{index}", img_h=8, img_w=8)
+    keys = jax.random.split(jax.random.key(17), 64)
+    states = jax.jit(jax.vmap(lambda key: env.reset(key)[1]))(keys)
+    types = jax.vmap(env._object_types)(states)
+    assert states.object_active.shape == (64, candidates)
+    assert np.all(
+        np.sum(np.asarray(states.object_active & (types == OBJECT_GOAL)), axis=1) == 1
+    )
+    assert np.all(
+        np.sum(np.asarray(states.object_active & (types == OBJECT_APPLE)), axis=1)
+        == fruits
+    )
+    assert len(np.unique(np.asarray(states.goal_xy), axis=0)) > 10
+    assert len(np.unique(np.asarray(states.pos), axis=0)) > 10
+    assert len(np.unique(np.asarray(states.theta))) == 64
+    assert np.all(
+        (np.asarray(states.theta) >= 0) & (np.asarray(states.theta) < 2 * np.pi)
+    )
+    expected = SOURCE_ENTITIES[f"dmlab-random-{index}"]["spawn_eligible_sha256"]
+    assert (
+        hashlib.sha256(np.asarray(env._spawn_eligible).tobytes()).hexdigest()
+        == expected
+    )
+    candidate_xy = np.asarray(env.maze.object_xy)
+    for pos, goal in zip(np.asarray(states.pos), np.asarray(states.goal_xy)):
+        spawn_idx = np.flatnonzero(np.all(candidate_xy == pos, axis=1))[0]
+        goal_idx = np.flatnonzero(np.all(candidate_xy == goal, axis=1))[0]
+        assert bool(env._spawn_eligible[goal_idx, spawn_idx])
+    repeated = jax.jit(lambda key: env.reset(key)[1])(keys[0])
+    assert np.array_equal(repeated.object_active, states.object_active[0])
+    assert np.array_equal(repeated.pos, states.pos[0])
+    assert float(repeated.theta) == float(states.theta[0])
+
+
+@pytest.mark.parametrize("index,apple_count", [("01", 5), ("02", 13), ("03", 26)])
+def test_static_resets_activate_all_apples_and_randomize_heading(index, apple_count):
+    env = make_jaxenstein_env(f"dmlab-static-{index}", img_h=8, img_w=8)
+    keys = jax.random.split(jax.random.key(3), 32)
+    states = jax.jit(jax.vmap(lambda key: env.reset(key)[1]))(keys)
+    assert np.all(
+        np.sum(
+            np.asarray(states.object_active & (env.maze.object_type == OBJECT_APPLE)),
+            axis=1,
+        )
+        == apple_count
+    )
+    assert len(np.unique(np.asarray(states.theta))) == 32
+    fixed = make_jaxenstein_env(
+        f"dmlab-static-{index}", randomize_spawn_heading=False, img_h=8, img_w=8
+    )
+    _, fixed_state = fixed.reset(keys[0])
+    assert float(fixed_state.theta) == 0.0
+    assert np.array_equal(fixed_state.pos, states.pos[0])
