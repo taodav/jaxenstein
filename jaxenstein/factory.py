@@ -31,8 +31,6 @@ _HEALTH_GATHERING_PARAM_NAMES = frozenset(HealthGatheringParams.__dataclass_fiel
 def make_jaxenstein_env(env_id: str, **kwargs: Any) -> RayMazeEnv | HealthGatheringEnv:
     """Create a JAXenstein environment from a registered environment ID."""
 
-    # Catalog construction validates static arrays on the CPU. Training code
-    # may call this factory while tracing its enclosing JIT/vmap function.
     with jax.ensure_compile_time_eval():
         return _make_jaxenstein_env(env_id, **kwargs)
 
