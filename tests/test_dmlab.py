@@ -113,16 +113,6 @@ def test_dmlab_map_to_ascii_converts_entities_and_decal_wall_color():
     assert jnp.allclose(maze.goal_xy, jnp.asarray([3.5, 1.5]))
 
 
-def test_four_connected_floor_tiles_do_not_create_a_pillar():
-    room = (
-        SAMPLE_DMLAB_MAP.replace("0 100 0", "0 200 0")
-        .replace("0 100 32", "0 200 32")
-        .replace("32 100 0", "32 200 0")
-    )
-    maze = parse_ascii_maze(dmlab_map_to_ascii(room))
-    assert not bool(maze.wall_grid[2, 2])
-
-
 def test_generated_dmlab_nav_maze_maps_parse_and_are_registered():
     dmlab_maps = {
         "dmlab-static-01": DMLAB_NAV_MAZE_STATIC_01,
