@@ -7,17 +7,6 @@ the goal. Apples disappear after collection and reappear on reset; collecting
 apples does not terminate the episode. The goal or time limit ends the episode.
 Initial headings are uniform over the full circle.
 
-Apples and goals use the inclusive XY contact bounds from
-`BG_PlayerTouchesItem`: player minus object offsets in [-50, 44] x [-36, 36]
-source units, or [-1.0, 0.88] x [-0.72, 0.72] here. The original Z condition
-is omitted in this flat 2D environment. Other environments retain circular
-pickup regions. Source:
-https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/engine/code/game/bg_misc.c#L1149
-
-The converter preserves open intersections instead of inserting solid pillars.
-All three random-maze wall masks are checked cell by cell against the official
-Lua entity layers, with the source Y-axis reversal applied.
-
 | Size | Static apples | Static spawn locations | Random goal candidates | Random apples per episode |
 | --- | ---: | ---: | ---: | ---: |
 | 01 | 5 | 43 | 50 | 5 |
@@ -31,28 +20,11 @@ goal, and scatter apples uniformly without replacement over the remaining
 locations. The apple count is `floor(0.1 * (candidate_count - 1) + 0.5)`.
 The source map's single start is a placeholder relocated by the level script.
 
-The entity and initial-reset rules follow DeepMind Lab's
+These rules follow DeepMind Lab's
 [static factory](https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/game_scripts/factories/seek_avoid_factory.lua),
 [random-goal factory](https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/game_scripts/factories/random_goal_factory.lua),
 and [spawn code](https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/engine/code/game/g_client.c).
 JAXenstein retains its own raycast geometry, movement, and rendering.
-
-**Intentional episode semantics:** the official engine reloads the map after a
-goal while the timed episode continues. JAXenstein treats every map restart as
-a new episode: a goal sets done, and reset starts a fresh time budget.
-Consequently, callers that clear recurrent memory on done
-also clear it after every goal, and random-goal layouts are resampled then.
-The original keeps the goal and apple placement fixed until the timed episode
-ends, restoring collected apples on each map reload. See
-https://github.com/google-deepmind/lab/blob/b1db91af5b4d2f3a24466f4632a3e5e1b0829cca/engine/code/deepmind/dmlab_connect.c#L1183
-and game_scripts/decorators/timeout.lua in the same revision.
-
-Other intentional approximations remain: discrete 2D movement with point
-collision instead of Quake's 3D player physics, grid-thick walls, a 30-step/s
-time budget, and static billboard sprites instead of spinning/bobbing models.
-Engine warm-up during map loading is not simulated; pickups overlapping the
-spawn are processed on the first environment step. The source audit verifies
-rules and geometry; it is not a frame-by-frame comparison with a running Lab.
 
 Factory overrides include `apple_reward=0.0`, `randomize_spawn_heading=False`,
 and, for random levels, `scattered_reward_density=0.0`. Other environment IDs
