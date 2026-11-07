@@ -49,14 +49,23 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
-from jaxenstein.objects import COLORED_WALL_SYMBOLS, ObjectPlacement, ObjectSpec
+from jaxenstein.objects import (
+    COLORED_WALL_SYMBOLS,
+    ObjectPlacement,
+    ObjectSpec,
+    default_object_spec,
+)
 from jaxenstein.sprites import coordinates, rgba
 
 DMLAB_CELL_SIZE = 100.0
+# BG_PlayerTouchesItem uses player-minus-item offsets: x in [-50, 44],
+# y in [-36, 36]. One source maze cell maps to two JAXenstein cells.
+# The Z bounds are omitted because these environments have flat 2D physics.
+DMLAB_PICKUP_BOUNDS = ((-1.0, -0.72), (0.88, 0.72))
 _POINT_RE = re.compile(
     r"\(\s*([-+]?\d+(?:\.\d+)?)\s+"
     r"([-+]?\d+(?:\.\d+)?)\s+"
@@ -132,6 +141,20 @@ def dmlab_map_to_ascii(map_text: str, *, cell_size: float = DMLAB_CELL_SIZE) -> 
     for col, row in floor_cells:
         grid[2 * row + 1][2 * col + 1] = "."
     _open_floor_connectors(grid, floor_cells, wall_symbols)
+    # A fully open four-way intersection is floor, not an artificial pillar.
+    # The connector pass already excludes every source wall segment.
+    for row in range(2, height - 1, 2):
+        for col in range(2, width - 1, 2):
+            if all(
+                grid[r][c] == "."
+                for r, c in (
+                    (row - 1, col),
+                    (row + 1, col),
+                    (row, col - 1),
+                    (row, col + 1),
+                )
+            ):
+                grid[row][col] = "."
 
     for (row, col), symbol in wall_symbols.items():
         if 0 <= row < height and 0 <= col < width:
@@ -306,5 +329,13 @@ def apple_sprite():
     return image
 
 
-def dmlab_object_types(*, apple_reward=1.0):
-    return {"apple": ObjectSpec(sprite=apple_sprite, reward=apple_reward)}
+def dmlab_object_types(*, apple_reward=1.0, goal_reward=10.0):
+    return {
+        "apple": ObjectSpec(
+            sprite=apple_sprite, reward=apple_reward, pickup_bounds=DMLAB_PICKUP_BOUNDS
+        ),
+        "goal": replace(
+            default_object_spec("goal", goal_reward=goal_reward),
+            pickup_bounds=DMLAB_PICKUP_BOUNDS,
+        ),
+    }

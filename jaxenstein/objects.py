@@ -107,6 +107,9 @@ class ObjectSpec:
     inventory_key: int = KEY_COLOR_NONE
     width_scale: float = 0.58
     height_scale: float = 0.85
+    # Inclusive world-axis bounds for (player_xy - object_xy). When provided,
+    # these replace the circular pickup_radius test.
+    pickup_bounds: tuple[tuple[float, float], tuple[float, float]] | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +127,9 @@ class ObjectCatalog:
     sprites: jax.Array
     rewards: jax.Array
     pickup_radii: jax.Array
+    pickup_mins: jax.Array
+    pickup_maxs: jax.Array
+    box_pickups: jax.Array
     terminal: jax.Array
     consume: jax.Array
     is_goal: jax.Array
@@ -132,6 +138,8 @@ class ObjectCatalog:
     height_scales: jax.Array
     has_goals: bool
     has_keys: bool
+    has_box_pickups: bool
+    has_radius_pickups: bool
 
     def id(self, name: str) -> int:
         return self.names.index(name)
@@ -178,6 +186,16 @@ def compile_object_catalog(
             )
         if not 0 <= spec.inventory_key < NUM_KEY_COLORS:
             raise ValueError("inventory_key must be a supported key color")
+        if spec.pickup_bounds is not None:
+            bounds = np.asarray(spec.pickup_bounds)
+            if (
+                bounds.shape != (2, 2)
+                or not np.all(np.isfinite(bounds))
+                or np.any(bounds[0] > bounds[1])
+            ):
+                raise ValueError(
+                    "pickup_bounds must be finite ordered (min_xy, max_xy) pairs"
+                )
         if (
             not np.isfinite(spec.width_scale)
             or not np.isfinite(spec.height_scale)
@@ -213,11 +231,23 @@ def compile_object_catalog(
     def array(field, dtype):
         return jnp.asarray([getattr(spec, field) for spec in specs], dtype=dtype)
 
+    bounds = np.asarray(
+        [
+            s.pickup_bounds if s.pickup_bounds is not None else ((0, 0), (0, 0))
+            for s in specs
+        ],
+        dtype=np.float32,
+    ).reshape(-1, 2, 2)
     return ObjectCatalog(
         names=names,
         sprites=jnp.asarray(atlas),
         rewards=array("reward", jnp.float32),
         pickup_radii=array("pickup_radius", jnp.float32),
+        pickup_mins=jnp.asarray(bounds[:, 0]),
+        pickup_maxs=jnp.asarray(bounds[:, 1]),
+        box_pickups=jnp.asarray(
+            [s.pickup_bounds is not None for s in specs], dtype=jnp.bool_
+        ),
         terminal=array("terminal", jnp.bool_),
         consume=array("consume", jnp.bool_),
         is_goal=array("is_goal", jnp.bool_),
@@ -226,4 +256,6 @@ def compile_object_catalog(
         height_scales=array("height_scale", jnp.float32),
         has_goals=any(s.is_goal for s in specs),
         has_keys=any(s.inventory_key != 0 for s in specs),
+        has_box_pickups=any(s.pickup_bounds is not None for s in specs),
+        has_radius_pickups=any(s.pickup_bounds is None for s in specs),
     )

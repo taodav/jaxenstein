@@ -34,10 +34,10 @@ def test_spawn_can_share_an_apple_without_changing_wall_symbols():
 
 def test_apple_reward_is_once_per_episode_and_does_not_terminate():
     env = RayMazeEnv.from_ascii(
-        "######\n#S..G#\n######",
+        "########\n#S....G#\n########",
         objects=[
             ObjectPlacement("apple", (1.5, 1.5)),
-            ObjectPlacement("apple", (2.5, 1.5)),
+            ObjectPlacement("apple", (3.5, 1.5)),
         ],
         object_types=dmlab_object_types(),
         img_h=8,
@@ -56,7 +56,7 @@ def test_apple_reward_is_once_per_episode_and_does_not_terminate():
     _, state, reward, _, _ = step(state, ACTION_INTERACT)
     assert float(reward) == pytest.approx(-0.1)
     _, state, reward, done, _ = step(
-        state.replace(pos=jnp.array([2.5, 1.5])), ACTION_INTERACT
+        state.replace(pos=jnp.array([3.5, 1.5])), ACTION_INTERACT
     )
     assert float(reward) == pytest.approx(0.9)
     assert not bool(done)  # Collecting every apple does not end the level.

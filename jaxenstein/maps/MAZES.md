@@ -105,6 +105,12 @@ by that environment's object slots or `possible_object_types`. Unused
 configuration entries are ignored; their sprite builders are never called.
 No object-specific shape functions run inside JIT-compiled rendering.
 
+Optional `pickup_bounds=((min_x, min_y), (max_x, max_y))` replaces the circular
+radius with an inclusive rectangular contact region. Bounds are world-axis
+offsets of the player from the object, independent of heading. Catalogs using
+only circles do not execute rectangular contact tests, and vice versa. DMLab
+apples and goals use the source engine's XY bounds, scaled to maze coordinates.
+
 `terminal=True` ends an episode on collection; `is_goal=True` separately marks
 navigation goals. Reset activates one eligible goal candidate, all other
 initially active objects, and preserves inactive slots. `consume=False` keeps
